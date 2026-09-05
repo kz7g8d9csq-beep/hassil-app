@@ -6,7 +6,7 @@ function App() {
     const saved = localStorage.getItem('hassil_user');
     if (saved) {
       const parsed = JSON.parse(saved);
-      API.defaults.headers.common['user-id'] = parsed.id;
+      if(API.defaults) API.defaults.headers.common['user-id'] = parsed.id;
       return parsed;
     }
     return null;
@@ -98,138 +98,9 @@ function App() {
     return match ? match[1] : '---';
   };
 
-  // قاموس الترجمة الشامل لكل التطبيق
   const t = {
-    ar: {
-      dashboard: '📊 لوحة التقارير',
-      newInvoice: '🧾 إصدار فاتورة',
-      invoices: '📂 الفواتير',
-      clients: '👥 العملاء',
-      settings: '⚙️ إعدادات المنشأة',
-      totalSales: 'إجمالي المبيعات',
-      zatcaTaxes: 'ضرائب ZATCA (15%)',
-      paidInvs: 'الفواتير المدفوعة',
-      unpaidInvs: 'الفواتير غير المدفوعة',
-      logout: 'تسجيل الخروج',
-      welcome: 'أهلاً بك في لوحة تحكم نظام حاصل 🚀',
-      welcomeSub: 'استخدم القائمة العلوية لإدارة الفواتير والعملاء وتعديل المظهر واللغة بكل مرونة.',
-      invoiceTitle: 'إصدار فاتورة ضريبية جديدة',
-      editInvoiceTitle: 'تعديل الفاتورة',
-      clientSelect: 'اختر العميل:',
-      clientSelectPlaceholder: '-- حدد العميل بالاسم أو الرمز --',
-      itemDesc: 'وصف المنتج أو الخدمة:',
-      itemDescPlaceholder: 'مثال: استشارات برمجية...',
-      baseAmount: 'المبلغ الأساسي (ر.س):',
-      invoiceStatus: 'حالة الفاتورة:',
-      paid: 'مدفوعة',
-      unpaid: 'غير مدفوعة',
-      paymentTerm: 'مدة السداد:',
-      noTerm: 'بدون مدة سداد',
-      withTerm: 'بمدة سداد',
-      dueDateLabel: 'تاريخ السداد النهائي:',
-      subtotalText: 'المبلغ الصافي:',
-      taxText: 'ضريبة القيمة المضافة (15%):',
-      totalText: 'الإجمالي النهائي:',
-      saveInvoice: 'إصدار وحفظ الفاتورة',
-      updateInvoice: 'تحديث الفاتورة',
-      cancel: 'إلغاء',
-      invoicesListTitle: 'قائمة الفواتير الصادرة وسندات القبض',
-      searchPlaceholder: '🔍 ابحث باسم العميل أو برمز العميل...',
-      invNumber: 'رقم الفاتورة',
-      clientNameHeader: 'العميل (ورمزه)',
-      netAmount: 'المبلغ الصافي',
-      taxHeader: 'الضريبة (%15)',
-      totalHeader: 'الإجمالي النهائي',
-      statusHeader: 'الحالة',
-      actionsHeader: 'الإجراءات',
-      pdfBtn: 'فاتورة PDF',
-      receiptBtn: 'سند قبض',
-      waBtn: 'واتساب',
-      editBtn: 'تعديل',
-      deleteBtn: 'حذف',
-      addClientTitle: 'إضافة عميل جديد',
-      editClientTitle: 'تعديل بيانات العميل',
-      clientNameLabel: 'اسم العميل',
-      clientPhoneLabel: 'رقم الجوال',
-      clientEmailLabel: 'البريد الإلكتروني',
-      saveClientBtn: 'إضافة (مع رمز آلي)',
-      updateClientBtn: 'حفظ التعديل',
-      clientsListTitle: 'قائمة العملاء ورموزهم الفريدة',
-      clientSearchPlaceholder: '🔍 ابحث بالاسم أو بررمز العميل (CL-XXXXX)...',
-      clientCodeHeader: 'الرمز الآلي',
-      settingsTitle: 'إعدادات المنشأة والشعار',
-      bizNameLabel: 'اسم المؤسسة / المتجر:',
-      logoLabel: 'شعار المؤسسة (من الجهاز):',
-      saveSettingsBtn: 'حفظ التعديلات والإعدادات',
-      darkMode: 'المظهر الليلي',
-      lightMode: 'المظهر النهاري',
-      autoMode: 'تلقائي (حسب الوقت)'
-    },
-    en: {
-      dashboard: '📊 Dashboard',
-      newInvoice: '🧾 New Invoice',
-      invoices: '📂 Invoices',
-      clients: '👥 Clients',
-      settings: '⚙️ Business Settings',
-      totalSales: 'Total Sales',
-      zatcaTaxes: 'ZATCA Taxes (15%)',
-      paidInvs: 'Paid Invoices',
-      unpaidInvs: 'Unpaid Invoices',
-      logout: 'Logout',
-      welcome: 'Welcome to Hassil Dashboard 🚀',
-      welcomeSub: 'Use the top menu to manage invoices, clients, theme and language flexibly.',
-      invoiceTitle: 'Issue New Tax Invoice',
-      editInvoiceTitle: 'Edit Invoice',
-      clientSelect: 'Select Client:',
-      clientSelectPlaceholder: '-- Select client by name or code --',
-      itemDesc: 'Product or Service Description:',
-      itemDescPlaceholder: 'Example: Software Consulting...',
-      baseAmount: 'Base Amount (SAR):',
-      invoiceStatus: 'Invoice Status:',
-      paid: 'Paid',
-      unpaid: 'Unpaid',
-      paymentTerm: 'Payment Term:',
-      noTerm: 'No Term',
-      withTerm: 'With Term',
-      dueDateLabel: 'Due Date:',
-      subtotalText: 'Subtotal:',
-      taxText: 'VAT (15%):',
-      totalText: 'Grand Total:',
-      saveInvoice: 'Issue & Save Invoice',
-      updateInvoice: 'Update Invoice',
-      cancel: 'Cancel',
-      invoicesListTitle: 'Issued Invoices & Receipt Vouchers',
-      searchPlaceholder: '🔍 Search by client name or code...',
-      invNumber: 'Invoice #',
-      clientNameHeader: 'Client (Code)',
-      netAmount: 'Subtotal',
-      taxHeader: 'Tax (15%)',
-      totalHeader: 'Grand Total',
-      statusHeader: 'Status',
-      actionsHeader: 'Actions',
-      pdfBtn: 'PDF Invoice',
-      receiptBtn: 'Receipt',
-      waBtn: 'WhatsApp',
-      editBtn: 'Edit',
-      deleteBtn: 'Delete',
-      addClientTitle: 'Add New Client',
-      editClientTitle: 'Edit Client Info',
-      clientNameLabel: 'Client Name',
-      clientPhoneLabel: 'Phone Number',
-      clientEmailLabel: 'Email Address',
-      saveClientBtn: 'Add (Auto Code)',
-      updateClientBtn: 'Save Changes',
-      clientsListTitle: 'Clients List & Unique Codes',
-      clientSearchPlaceholder: '🔍 Search by name or client code (CL-XXXXX)...',
-      clientCodeHeader: 'Auto Code',
-      settingsTitle: 'Business & Logo Settings',
-      bizNameLabel: 'Business / Store Name:',
-      logoLabel: 'Business Logo (from device):',
-      saveSettingsBtn: 'Save Changes & Settings',
-      darkMode: 'Dark Mode',
-      lightMode: 'Light Mode',
-      autoMode: 'Auto (Time-based)'
-    }
+    ar: { dashboard: '📊 لوحة التقارير', newInvoice: '🧾 إصدار فاتورة', invoices: '📂 الفواتير', clients: '👥 العملاء', settings: '⚙️ إعدادات المنشأة', totalSales: 'إجمالي المبيعات', zatcaTaxes: 'ضرائب ZATCA (15%)', paidInvs: 'الفواتير المدفوعة', unpaidInvs: 'الفواتير غير المدفوعة', logout: 'تسجيل الخروج', welcome: 'أهلاً بك في لوحة تحكم نظام حاصل 🚀', welcomeSub: 'استخدم القائمة العلوية لإدارة الفواتير والعملاء وتعديل المظهر واللغة بكل مرونة.', invoiceTitle: 'إصدار فاتورة ضريبية جديدة', editInvoiceTitle: 'تعديل الفاتورة', clientSelect: 'اختر العميل:', clientSelectPlaceholder: '-- حدد العميل بالاسم أو الرمز --', itemDesc: 'وصف المنتج أو الخدمة:', itemDescPlaceholder: 'مثال: استشارات برمجية...', baseAmount: 'المبلغ الأساسي (ر.س):', invoiceStatus: 'حالة الفاتورة:', paid: 'مدفوعة', unpaid: 'غير مدفوعة', paymentTerm: 'مدة السداد:', noTerm: 'بدون مدة سداد', withTerm: 'بمدة سداد', dueDateLabel: 'تاريخ السداد النهائي:', subtotalText: 'المبلغ الصافي:', taxText: 'ضريبة القيمة المضافة (15%):', totalText: 'الإجمالي النهائي:', saveInvoice: 'إصدار وحفظ الفاتورة', updateInvoice: 'تحديث الفاتورة', cancel: 'إلغاء', invoicesListTitle: 'قائمة الفواتير الصادرة وسندات القبض', searchPlaceholder: '🔍 ابحث باسم العميل أو برمز العميل...', invNumber: 'رقم الفاتورة', clientNameHeader: 'العميل (ورمزه)', netAmount: 'المبلغ الصافي', taxHeader: 'الضريبة (%15)', totalHeader: 'الإجمالي النهائي', statusHeader: 'الحالة', actionsHeader: 'الإجراءات', pdfBtn: 'فاتورة PDF', receiptBtn: 'سند قبض', waBtn: 'واتساب', editBtn: 'تعديل', deleteBtn: 'حذف', addClientTitle: 'إضافة عميل جديد', editClientTitle: 'تعديل بيانات العميل', clientNameLabel: 'اسم العميل', clientPhoneLabel: 'رقم الجوال', clientEmailLabel: 'البريد الإلكتروني', saveClientBtn: 'إضافة (مع رمز آلي)', updateClientBtn: 'حفظ التعديل', clientsListTitle: 'قائمة العملاء ورموزهم الفريدة', clientSearchPlaceholder: '🔍 ابحث بالاسم أو بررمز العميل (CL-XXXXX)...', clientCodeHeader: 'الرمز الآلي', settingsTitle: 'إعدادات المنشأة والشعار', bizNameLabel: 'اسم المؤسسة / المتجر:', logoLabel: 'شعار المؤسسة (من الجهاز):', saveSettingsBtn: 'حفظ التعديلات والإعدادات', darkMode: 'المظهر الليلي', lightMode: 'المظهر النهاري', autoMode: 'تلقائي (حسب الوقت)' },
+    en: { dashboard: '📊 Dashboard', newInvoice: '🧾 New Invoice', invoices: '📂 Invoices', clients: '👥 Clients', settings: '⚙️ Business Settings', totalSales: 'Total Sales', zatcaTaxes: 'ZATCA Taxes (15%)', paidInvs: 'Paid Invoices', unpaidInvs: 'Unpaid Invoices', logout: 'Logout', welcome: 'Welcome to Hassil Dashboard 🚀', welcomeSub: 'Use the top menu to manage invoices, clients, theme and language flexibly.', invoiceTitle: 'Issue New Tax Invoice', editInvoiceTitle: 'Edit Invoice', clientSelect: 'Select Client:', clientSelectPlaceholder: '-- Select client by name or code --', itemDesc: 'Product or Service Description:', itemDescPlaceholder: 'Example: Software Consulting...', baseAmount: 'Base Amount (SAR):', invoiceStatus: 'Invoice Status:', paid: 'Paid', unpaid: 'Unpaid', paymentTerm: 'Payment Term:', noTerm: 'No Term', withTerm: 'With Term', dueDateLabel: 'Due Date:', subtotalText: 'Subtotal:', taxText: 'VAT (15%):', totalText: 'Grand Total:', saveInvoice: 'Issue & Save Invoice', updateInvoice: 'Update Invoice', cancel: 'Cancel', invoicesListTitle: 'Issued Invoices & Receipt Vouchers', searchPlaceholder: '🔍 Search by client name or code...', invNumber: 'Invoice #', clientNameHeader: 'Client (Code)', netAmount: 'Subtotal', taxHeader: 'Tax (15%)', totalHeader: 'Grand Total', statusHeader: 'Status', actionsHeader: 'Actions', pdfBtn: 'PDF Invoice', receiptBtn: 'Receipt', waBtn: 'WhatsApp', editBtn: 'Edit', deleteBtn: 'Delete', addClientTitle: 'Add New Client', editClientTitle: 'Edit Client Info', clientNameLabel: 'Client Name', clientPhoneLabel: 'Phone Number', clientEmailLabel: 'Email Address', saveClientBtn: 'Add (Auto Code)', updateClientBtn: 'Save Changes', clientsListTitle: 'Clients List & Unique Codes', clientSearchPlaceholder: '🔍 Search by name or client code (CL-XXXXX)...', clientCodeHeader: 'Auto Code', settingsTitle: 'Business & Logo Settings', bizNameLabel: 'Business / Store Name:', logoLabel: 'Business Logo (from device):', saveSettingsBtn: 'Save Changes & Settings', darkMode: 'Dark Mode', lightMode: 'Light Mode', autoMode: 'Auto (Time-based)' }
   };
 
   const txt = t[lang];
@@ -388,225 +259,116 @@ function App() {
   };
 
   const handlePrintOrPDF = (inv) => {
-    const isPaid = inv.notes?.includes('Paid') || inv.notes?.includes('مدفوعة');
-    const dateMatch = inv.notes?.match(/تاريخ\s+([0-9\/\-]+)/);
-    const dueDateDisplay = dateMatch ? dateMatch[1] : 'Immediate';
-    const showWarning = !!dateMatch && !isPaid;
-
     const printWin = window.open('', '_blank');
-    printWin.document.write(`
-      <html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}">
-      <head>
-        <meta charset="UTF-8">
-        <title>Tax Invoice - ${inv.invoiceNumber}</title>
-        <style>
-          @page { size: A4; margin: 15mm; }
-          body { font-family: 'Tahoma', Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0; direction: ${lang === 'ar' ? 'rtl' : 'ltr'}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .invoice-container { width: 100%; max-width: 210mm; margin: auto; border: 2px solid ${themeColor}; padding: 30px; border-radius: 8px; box-sizing: border-box; }
-          .header-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-          .header-table td { vertical-align: middle; }
-          .company-info { display: flex; align-items: center; gap: 15px; }
-          .company-info h2 { color: ${themeColor}; margin: 0 0 5px; font-size: 26px; }
-          .company-info p { margin: 2px 0; color: #475569; font-size: 15px; }
-          .logo-img { max-height: 75px; max-width: 150px; object-fit: contain; display: block; }
-          .invoice-meta { text-align: ${lang === 'ar' ? 'left' : 'right'}; }
-          .invoice-meta h1 { margin: 0 0 10px; font-size: 26px; color: #0f172a; }
-          .dates-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-          .dates-table td, .dates-table th { border: 1px solid #cbd5e1; padding: 10px 15px; font-size: 15px; text-align: center; }
-          .dates-table th { background: #f8fafc; color: ${themeColor}; }
-          .client-box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 15px; margin-bottom: 25px; background: #f8fafc; }
-          .client-box h4 { margin: 0 0 10px; color: ${themeColor}; font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
-          .client-box p { margin: 5px 0; font-size: 15px; }
-          .items-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-          .items-table th, .items-table td { border: 1px solid #94a3b8; padding: 14px; font-size: 15px; text-align: ${lang === 'ar' ? 'right' : 'left'}; }
-          .items-table th { background: ${themeColor}; color: #fff; }
-          .summary-table-wide { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          .summary-table-wide td { border: 1px solid #cbd5e1; padding: 14px 15px; font-size: 15px; text-align: center; }
-          .summary-table-wide th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 14px 15px; font-size: 15px; color: #0f172a; }
-          .official-warning { border: 2px solid #dc2626; background: #fef2f2; color: #b91c1c; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="invoice-container">
-          <table class="header-table">
-            <tr>
-              <td>
-                <div class="company-info">
-                  ${businessLogo ? `<img src="${businessLogo}" class="logo-img" alt="Logo" />` : ''}
-                  <div>
-                    <h2>${businessName}</h2>
-                    <p>${businessCity}</p>
-                  </div>
-                </div>
-              </td>
-              <td class="invoice-meta">
-                <h1>Tax Invoice</h1>
-                <p><strong>Invoice #:</strong> ${inv.invoiceNumber}</p>
-                <p style="font-size: 18px;"><strong>Status:</strong> <span style="color: ${isPaid ? '#16a34a' : '#dc2626'}; font-weight: bold;">${isPaid ? 'Paid' : 'Unpaid'}</span></p>
-              </td>
-            </tr>
-          </table>
-
-          <table class="dates-table">
-            <tr>
-              <th>Issue Date</th>
-              <th>Due Date</th>
-            </tr>
-            <tr>
-              <td>${new Date().toLocaleDateString()}</td>
-              <td style="color: ${showWarning ? '#dc2626' : '#111'}; font-weight: bold;">${dueDateDisplay}</td>
-            </tr>
-          </table>
-
-          <div class="client-box">
-            <h4>Client Details</h4>
-            <p><strong>Client Name:</strong> ${inv.client?.name || '---'}</p>
-            <p><strong>Phone:</strong> ${inv.client?.phone || '---'}</p>
-            <p><strong>Email:</strong> ${inv.client?.email || '---'}</p>
-          </div>
-
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th style="text-align: center; width: 80px;">Qty</th>
-                <th style="text-align: center; width: 130px;">Unit Price</th>
-                <th style="text-align: center; width: 130px;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${inv.items.map(item => `
-                <tr>
-                  <td>${item.description}</td>
-                  <td style="text-align: center;">${item.quantity}</td>
-                  <td style="text-align: center;">${item.unitPrice} SAR</td>
-                  <td style="text-align: center;">${item.total} SAR</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <table class="summary-table-wide">
-            <tr>
-              <th>Subtotal</th>
-              <th>VAT (15%)</th>
-              <th style="background: #e2e8f0; color: #16a34a; font-size: 18px;">Grand Total</th>
-            </tr>
-            <tr>
-              <td>${inv.subtotal} SAR</td>
-              <td style="color: #dc2626;">${inv.taxAmount} SAR</td>
-              <td style="font-weight: bold; color: #16a34a; font-size: 18px;">${inv.totalAmount} SAR</td>
-            </tr>
-          </table>
-
-          ${showWarning ? `<div class="official-warning">⚠️ Warning: Failure to pay within the specified period will result in legal action.</div>` : ''}
-        </div>
-      </body>
-      </html>
-    `);
+    printWin.document.write(`<html><head><title>Invoice</title></head><body><h1>Invoice ${inv.invoiceNumber}</h1></body></html>`);
     printWin.document.close();
     setTimeout(() => { printWin.print(); }, 500);
   };
 
   const handlePrintReceipt = (inv) => {
     const printWin = window.open('', '_blank');
-    printWin.document.write(`
-      <html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}">
-      <head>
-        <meta charset="UTF-8">
-        <title>Receipt Voucher - ${inv.invoiceNumber}</title>
-        <style>
-          @page { size: A4; margin: 20mm; }
-          body { font-family: 'Tahoma', Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0; direction: ${lang === 'ar' ? 'rtl' : 'ltr'}; }
-          .receipt-box { width: 100%; max-width: 180mm; margin: auto; border: 3px double ${themeColor}; padding: 35px; border-radius: 10px; box-sizing: border-box; }
-          .receipt-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 25px; }
-          .receipt-header h2 { color: ${themeColor}; margin: 0; font-size: 26px; }
-          .receipt-header p { margin: 3px 0; color: #64748b; font-size: 14px; }
-          .amount-badge { background: #dcfce7; color: #16a34a; padding: 10px 20px; border-radius: 8px; font-size: 20px; font-weight: bold; border: 1px solid #bbf7d0; text-align: center; }
-          .receipt-body p { font-size: 17px; line-height: 2.2; margin: 12px 0; color: #334155; }
-          .receipt-body strong { color: #0f172a; }
-          .footer-signs { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; border-top: 1px dashed #cbd5e1; font-size: 16px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="receipt-box">
-          <div class="receipt-header">
-            <div>
-              <h2>${businessName}</h2>
-              <p>${businessCity}</p>
-            </div>
-            <div>
-              <h1 style="margin: 0; color: #0f172a; font-size: 24px;">Official Receipt Voucher</h1>
-              <p>Invoice #: ${inv.invoiceNumber}</p>
-            </div>
-          </div>
-
-          <div style="text-align: center; margin-bottom: 25px;">
-            <div class="amount-badge">Received Amount: ${inv.totalAmount} SAR</div>
-          </div>
-
-          <div class="receipt-body">
-            <p>Received from: <strong>${inv.client?.name || '---'}</strong></p>
-            <p>Phone: <strong>${inv.client?.phone || '---'}</strong></p>
-            <p>Amount: <strong>${inv.totalAmount} SAR</strong> (Inclusive of 15% VAT)</p>
-            <p>For: <strong>${inv.items?.[0]?.description || 'General Services'}</strong></p>
-            <p>Date: <strong>${new Date().toLocaleDateString()}</strong></p>
-          </div>
-
-          <div class="footer-signs">
-            <div>Accountant: ........................</div>
-            <div>Management Signature: ........................</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `);
+    printWin.document.write(`<html><head><title>Receipt</title></head><body><h1>Receipt for ${inv.totalAmount}</h1></body></html>`);
     printWin.document.close();
     setTimeout(() => { printWin.print(); }, 500);
   };
 
+  // ==========================================
+  // واجهة تسجيل الدخول (المتحركة والفخمة)
+  // ==========================================
   if (!user) {
     return (
-      <div style={{ fontFamily: 'Tahoma, sans-serif', direction: lang === 'ar' ? 'rtl' : 'ltr', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isDarkMode ? '#090d16' : '#0f172a' }}>
-        <div style={{ background: isDarkMode ? '#1e293b' : '#fff', color: isDarkMode ? '#f8fafc' : '#111', padding: '40px', borderRadius: '16px', width: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)' }}>
-          <h2 style={{ textAlign: 'center', color: '#2563eb', margin: '0 0 8px', fontSize: '28px' }}>نظام حاصل للفوترة / Hassil</h2>
-          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '20px' }}>
-            {authView === 'register' && (
-              <>
-                <input type="text" value={authBusinessName} onChange={e => setAuthBusinessName(e.target.value)} required placeholder="Business Name" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: isDarkMode ? '#0f172a' : '#fff', color: isDarkMode ? '#fff' : '#000', boxSizing: 'border-box' }} />
-                <input type="text" value={authClientName} onChange={e => setAuthClientName(e.target.value)} required placeholder="Owner Name" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: isDarkMode ? '#0f172a' : '#fff', color: isDarkMode ? '#fff' : '#000', boxSizing: 'border-box' }} />
-              </>
-            )}
-            <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required placeholder="Email Address" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: isDarkMode ? '#0f172a' : '#fff', color: isDarkMode ? '#fff' : '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
-            {(authView === 'register' || authView === 'forgot') && (
-              <input type="text" value={authPhone} onChange={e => setAuthPhone(e.target.value)} required placeholder="Phone Number (05XXXXXXXX)" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: isDarkMode ? '#0f172a' : '#fff', color: isDarkMode ? '#fff' : '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
-            )}
-            {(authView === 'login' || authView === 'register') && (
-              <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required placeholder="Password" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: isDarkMode ? '#0f172a' : '#fff', color: isDarkMode ? '#fff' : '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
-            )}
-            {authView === 'forgot' && resetVerified && (
-              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder="New Password" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #16a34a', background: isDarkMode ? '#0f172a' : '#fff', color: isDarkMode ? '#fff' : '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
-            )}
-            <button type="submit" style={{ background: '#2563eb', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
-              {authView === 'login' && 'Login'}
-              {authView === 'register' && 'Register Account'}
-              {authView === 'forgot' && (resetVerified ? 'Save New Password' : 'Verify & Send Reset')}
-            </button>
-          </form>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', fontSize: '13px' }}>
-            {authView === 'login' ? (
-              <>
-                <button type="button" onClick={() => { setAuthView('register'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontWeight: 'bold' }}>Create Account</button>
-                <button type="button" onClick={() => { setAuthView('forgot'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer' }}>Forgot Password?</button>
-              </>
-            ) : (
-              <button type="button" onClick={() => { setAuthView('login'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontWeight: 'bold', margin: 'auto' }}>Back to Login</button>
-            )}
+      <div style={{ fontFamily: 'Tahoma, sans-serif', direction: lang === 'ar' ? 'rtl' : 'ltr', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d1b2a', boxSizing: 'border-box' }}>
+        
+        {/* كود الحركة (الأنميشن) مدمج هنا ليعمل تلقائياً */}
+        <style>
+          {`
+            @keyframes slideInUp {
+              0% { opacity: 0; transform: translateY(40px); }
+              100% { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes floatAnimation {
+              0% { transform: translateY(0px); }
+              50% { transform: translateY(-15px); }
+              100% { transform: translateY(0px); }
+            }
+            .animate-container {
+              animation: slideInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            }
+            .animate-character {
+              animation: floatAnimation 3.5s ease-in-out infinite;
+            }
+          `}
+        </style>
+
+        {/* الحاوية الرئيسية (تنزلق من الأسفل) */}
+        <div className="animate-container" style={{ display: 'flex', width: '900px', maxWidth: '95%', background: '#1b263b', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          
+          {/* القسم الأيمن: الشخصية المتحركة (تطفو باستمرار) */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', background: 'radial-gradient(circle, #1b263b 0%, #0d1b2a 100%)' }}>
+            
+            <div className="animate-character" style={{ width: '220px', height: '300px', backgroundColor: '#000000', borderRadius: '16px', position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.6)', border: '2px solid #415a77', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {/* القميص الأبيض */}
+              <div style={{ position: 'absolute', top: '90px', width: '50px', height: '70px', backgroundColor: '#ffffff', clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)' }}></div>
+              {/* الكرافتة السوداء */}
+              <div style={{ position: 'absolute', top: '100px', width: '10px', height: '50px', backgroundColor: '#000000' }}></div>
+            </div>
+            
+            <p className="animate-character" style={{ color: '#e0e1dd', marginTop: '25px', fontSize: '17px', fontWeight: 'bold' }}>نظام حاصل للفوترة</p>
           </div>
+
+          {/* القسم الأيسر: نموذج تسجيل الدخول */}
+          <div style={{ flex: 1.2, background: '#ffffff', padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <h2 style={{ textAlign: 'center', color: '#0d1b2a', margin: '0 0 5px', fontSize: '26px' }}>أهلاً بك</h2>
+            <p style={{ textAlign: 'center', color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>سجل الدخول لإدارة فواتيرك وعملائك</p>
+
+            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {authView === 'register' && (
+                <>
+                  <input type="text" value={authBusinessName} onChange={e => setAuthBusinessName(e.target.value)} required placeholder="اسم المنشأة" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box' }} />
+                  <input type="text" value={authClientName} onChange={e => setAuthClientName(e.target.value)} required placeholder="اسم المالك" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box' }} />
+                </>
+              )}
+              <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required placeholder="البريد الإلكتروني" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
+              
+              {(authView === 'register' || authView === 'forgot') && (
+                <input type="text" value={authPhone} onChange={e => setAuthPhone(e.target.value)} required placeholder="رقم الجوال (05XXXXXXXX)" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
+              )}
+              
+              {(authView === 'login' || authView === 'register') && (
+                <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required placeholder="كلمة المرور" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
+              )}
+              
+              {authView === 'forgot' && resetVerified && (
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder="كلمة المرور الجديدة" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #16a34a', background: '#f8fafc', color: '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
+              )}
+              
+              <button type="submit" style={{ background: '#0d1b2a', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
+                {authView === 'login' && 'تسجيل الدخول'}
+                {authView === 'register' && 'إنشاء حساب جديد'}
+                {authView === 'forgot' && (resetVerified ? 'حفظ كلمة المرور الجديدة' : 'تحقق وإرسال طلب الإستعادة')}
+              </button>
+            </form>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', fontSize: '13px' }}>
+              {authView === 'login' ? (
+                <>
+                  <button type="button" onClick={() => { setAuthView('register'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 'bold' }}>إنشاء حساب جديد</button>
+                  <button type="button" onClick={() => { setAuthView('forgot'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>هل نسيت كلمة المرور؟</button>
+                </>
+              ) : (
+                <button type="button" onClick={() => { setAuthView('login'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 'bold', margin: 'auto' }}>العودة لتسجيل الدخول</button>
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
     );
   }
+
+  // ==========================================
+  // لوحة التحكم الأساسية (الداشبورد)
+  // ==========================================
 
   const totalSales = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
   const totalTaxes = invoices.reduce((sum, inv) => sum + Number(inv.taxAmount || 0), 0);
@@ -638,7 +400,6 @@ function App() {
   return (
     <div style={{ fontFamily: 'Tahoma, sans-serif', direction: lang === 'ar' ? 'rtl' : 'ltr', padding: '30px', background: bgMain, color: textColor, minHeight: '100vh', boxSizing: 'border-box', transition: 'background 0.3s' }}>
       
-      {/* شريط الهيدر العلوي */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', background: cardBg, padding: '15px 30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           {businessLogo && <img src={businessLogo} alt="Logo" style={{ maxHeight: '45px', objectFit: 'contain' }} />}
@@ -664,7 +425,6 @@ function App() {
         </div>
       </div>
 
-      {/* شريط التبويبات الرئيسي */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', background: cardBg, padding: '10px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', flexWrap: 'wrap' }}>
         <button onClick={() => setActiveTab('dashboard')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'dashboard' ? '#2563eb' : (isDarkMode ? '#0f172a' : '#f1f5f9'), color: activeTab === 'dashboard' ? '#fff' : subTextColor }}>{txt.dashboard}</button>
         <button onClick={() => setActiveTab('new_invoice')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'new_invoice' ? '#2563eb' : (isDarkMode ? '#0f172a' : '#f1f5f9'), color: activeTab === 'new_invoice' ? '#fff' : subTextColor }}>{txt.newInvoice}</button>
@@ -673,7 +433,6 @@ function App() {
         <button onClick={() => setActiveTab('settings')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'settings' ? '#2563eb' : (isDarkMode ? '#0f172a' : '#f1f5f9'), color: activeTab === 'settings' ? '#fff' : subTextColor }}>{txt.settings}</button>
       </div>
 
-      {/* لوحة التقارير */}
       {activeTab === 'dashboard' && (
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
@@ -694,7 +453,6 @@ function App() {
               <h2 style={{ margin: 0, fontSize: '26px' }}>{unpaidInvoicesCount}</h2>
             </div>
           </div>
-
           <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', textAlign: 'center' }}>
             <h2 style={{ color: textColor, margin: '0 0 10px' }}>{txt.welcome}</h2>
             <p style={{ color: subTextColor, fontSize: '16px', margin: 0 }}>{txt.welcomeSub}</p>
@@ -702,7 +460,6 @@ function App() {
         </div>
       )}
 
-      {/* إصدار الفاتورة */}
       {activeTab === 'new_invoice' && (
         <div style={{ background: cardBg, padding: '35px', borderRadius: '12px', maxWidth: '650px', margin: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <h2 style={{ marginTop: 0, color: textColor, marginBottom: '20px' }}>{editingInvoiceId ? txt.editInvoiceTitle : txt.invoiceTitle}</h2>
@@ -763,7 +520,6 @@ function App() {
         </div>
       )}
 
-      {/* إدارة الفواتير */}
       {activeTab === 'invoices' && (
         <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <h2 style={{ margin: '0 0 20px 0', color: textColor }}>{txt.invoicesListTitle}</h2>
@@ -788,7 +544,7 @@ function App() {
                 return (
                   <tr key={inv.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
                     <td style={{ padding: '14px', fontWeight: 'bold', color: '#2563eb' }}>{inv.invoiceNumber}</td>
-                    <td style={{ padding: '14px' }}>{inv.client?.name} <span style={{ color: '#0284c7', fontSize: '12px' }}>({extractClientCode(inv.client?.notes)})</span></td>
+                    <td style={{ padding: '14px' }}>{inv.client?.name}</td>
                     <td style={{ padding: '14px' }}>{inv.subtotal} SAR</td>
                     <td style={{ padding: '14px' }}>{inv.taxAmount} SAR</td>
                     <td style={{ padding: '14px', fontWeight: 'bold', color: '#16a34a' }}>{inv.totalAmount} SAR</td>
@@ -812,7 +568,6 @@ function App() {
         </div>
       )}
 
-      {/* إدارة العملاء */}
       {activeTab === 'clients' && (
         <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '25px', alignItems: 'flex-start' }}>
           <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -827,7 +582,6 @@ function App() {
               </div>
             </form>
           </div>
-
           <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <h3 style={{ margin: '0 0 20px 0', color: textColor }}>{txt.clientsListTitle}</h3>
             <div style={{ marginBottom: '20px' }}>
@@ -860,7 +614,6 @@ function App() {
         </div>
       )}
 
-      {/* إعدادات المنشأة */}
       {activeTab === 'settings' && (
         <div style={{ background: cardBg, padding: '35px', borderRadius: '12px', maxWidth: '500px', margin: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <h2 style={{ marginTop: 0, color: textColor, marginBottom: '20px' }}>{txt.settingsTitle}</h2>
@@ -882,7 +635,6 @@ function App() {
           </form>
         </div>
       )}
-
     </div>
   );
 }
