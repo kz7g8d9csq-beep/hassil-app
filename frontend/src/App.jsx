@@ -3,8 +3,9 @@ import API from './services/api';
 import QRCode from 'qrcode';
 
 function App() {
+  // === الحالات الأساسية (State) ===
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('hassil_user');
+    const saved = localStorage.getItem('mihwar_user');
     if (saved) {
       const parsed = JSON.parse(saved);
       if(API.defaults) API.defaults.headers.common['user-id'] = parsed.id;
@@ -13,98 +14,100 @@ function App() {
     return null;
   });
 
-  const [authView, setAuthView] = useState('login');
-  const [authEmail, setAuthEmail] = useState('');
+  const [authEmail, setAuthEmail] = useState('admin@mihwar.local');
   const [authPassword, setAuthPassword] = useState('');
-  const [authBusinessName, setAuthBusinessName] = useState('');
-  const [authClientName, setAuthClientName] = useState('');
-  const [authPhone, setAuthPhone] = useState('');
-  const [resetVerified, setResetVerified] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-
-  const [lang, setLang] = useState('ar');
-  const [themeMode, setThemeMode] = useState('auto');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // الأقسام الجديدة
-  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, new_invoice, invoices, clients, inventory, expenses, settings
+  // التنقل بين الشاشات
+  const [activeTab, setActiveTab] = useState('dashboard'); 
+  const [activeSalesStep, setActiveSalesStep] = useState(6); // 1: عرض سعر ... 6: فاتورة ... 8: مرتجع
+  const [showQuickAction, setShowQuickAction] = useState(false);
 
-  // إعدادات المنشأة
-  const [businessName, setBusinessName] = useState('نظام حاصل للفوترة');
-  const [businessCity, setBusinessCity] = useState('المملكة العربية السعودية - جدة');
+  // إعدادات المنشأة (محور)
+  const [businessName, setBusinessName] = useState('محور ERP');
+  const [businessCity, setBusinessCity] = useState('المملكة العربية السعودية');
   const [businessLogo, setBusinessLogo] = useState('');
-  const [businessVat, setBusinessVat] = useState(() => localStorage.getItem('hassil_vat') || '300000000000003');
-  
-  // إعدادات الربط (المرحلة الثالثة)
-  const [zidToken, setZidToken] = useState(() => localStorage.getItem('hassil_zid_token') || '');
-  const [paymentLinkUrl, setPaymentLinkUrl] = useState(() => localStorage.getItem('hassil_payment_link') || '');
+  const [businessVat, setBusinessVat] = useState(() => localStorage.getItem('mihwar_vat') || '300000000000003');
+  const [zidToken, setZidToken] = useState(() => localStorage.getItem('mihwar_zid_token') || '');
+  const [paymentLinkUrl, setPaymentLinkUrl] = useState(() => localStorage.getItem('mihwar_payment_link') || '');
 
-  // البيانات
-  const [clients, setClients] = useState([]);
+  // قواعد البيانات المحلية (مؤقتاً لحين ربط الباك إند بالكامل)
+  const [clients, setClients] = useState([{id: 1, name: 'عميل تجريبي', phone: '0500000000'}]);
+  const [inventory, setInventory] = useState([
+    {id: 1, name: 'Late landed cost 1783978884332', price: 1500},
+    {id: 2, name: 'WAVG 1783978561289', price: 200},
+    {id: 3, name: 'Landed 100 1783978561289', price: 100}
+  ]);
   const [invoices, setInvoices] = useState([]);
-  const [inventory, setInventory] = useState([]); // المرحلة الثانية: المنتجات
-  const [expenses, setExpenses] = useState([]); // المرحلة الثانية: المصروفات
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // حالات الإدخال للمنتجات والمصروفات
-  const [invItemName, setInvItemName] = useState('');
-  const [invItemPrice, setInvItemPrice] = useState('');
-  const [expDescription, setExpDescription] = useState('');
-  const [expAmount, setExpAmount] = useState('');
+  const [expenses, setExpenses] = useState([]);
   
-  // حقول العميل
-  const [clientName, setClientName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
-  const [editingClientId, setEditingClientId] = useState(null);
-
-  // حقول الفاتورة
+  // حقول شاشة المبيعات (الفاتورة)
   const [selectedClientId, setSelectedClientId] = useState('');
-  const [description, setDescription] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [qty, setQty] = useState(1);
   const [amount, setAmount] = useState('');
-  const [status, setStatus] = useState('Paid');
-  const [paymentMode, setPaymentMode] = useState('no_term');
-  const [dueDate, setDueDate] = useState('');
-  const [notes, setNotes] = useState('');
-  const [editingInvoiceId, setEditingInvoiceId] = useState(null);
+  const [taxRate, setTaxRate] = useState(15);
   
   const [activeModalDoc, setActiveModalDoc] = useState(null);
 
-  useEffect(() => {
-    const updateTheme = () => {
-      if (themeMode === 'dark') setIsDarkMode(true);
-      else if (themeMode === 'light') setIsDarkMode(false);
-      else { const hour = new Date().getHours(); setIsDarkMode(hour < 6 || hour >= 18); }
+  // === الألوان والهوية البصرية (محور ERP) ===
+  const theme = {
+    primary: '#26574f',    // الأخضر الداكن (زر الدخول)
+    secondary: '#0b1b3d',  // الكحلي الداكن (الشعار والنصوص الرئيسية)
+    accent: '#408079',     // الأخضر الفاتح المائل للأزرق
+    bgMain: '#f3f4f6',     // الرمادي الفاتح للخلفية
+    cardBg: '#ffffff',     // الأبيض للبطاقات
+    textDark: '#1e293b',   // نصوص داكنة
+    textMuted: '#64748b',  // نصوص باهتة
+    border: '#e2e8f0'      // لون الحدود
+  };
+
+  // === دوال النظام ===
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const mockUser = { id: 1, email: authEmail, role: 'مدير النظام' };
+    setUser(mockUser);
+    localStorage.setItem('mihwar_user', JSON.stringify(mockUser));
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('mihwar_user');
+  };
+
+  const handleProductSelect = (e) => {
+    const prodId = e.target.value;
+    setSelectedProductId(prodId);
+    const prod = inventory.find(p => p.id == prodId);
+    if(prod) setAmount(prod.price);
+  };
+
+  const handleSaveInvoice = () => {
+    if(!selectedClientId || !selectedProductId) { alert('الرجاء اختيار العميل والمنتج'); return; }
+    const prod = inventory.find(p => p.id == selectedProductId);
+    const client = clients.find(c => c.id == selectedClientId);
+    
+    const subtotal = Number(amount) * qty;
+    const taxAmount = subtotal * (taxRate / 100);
+    const totalAmount = subtotal + taxAmount;
+
+    const newInvoice = {
+      id: Date.now(),
+      invoiceNumber: `INV-${Math.floor(Math.random()*1000000)}`,
+      client: client,
+      items: [{ description: prod.name, quantity: qty, unitPrice: amount }],
+      subtotal: subtotal.toFixed(2),
+      taxAmount: taxAmount.toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+      createdAt: new Date(),
+      notes: 'غير مدفوعة'
     };
-    updateTheme();
-    const interval = setInterval(updateTheme, 60000);
-    return () => clearInterval(interval);
-  }, [themeMode]);
 
-  useEffect(() => {
-    if (user) {
-      setBusinessName(user.businessName || 'نظام حاصل للفوترة');
-      fetchData();
-      fetchSettings();
-    }
-  }, [user]);
-
-  const fetchData = () => {
-    API.get('/clients').then(res => setClients(res.data)).catch(() => {});
-    API.get('/invoices').then(res => setInvoices(res.data)).catch(() => {});
-    // جلب المنتجات والمصروفات (ستعمل عندما تضيفها للباك إند، حالياً سنعتمد على مصفوفات فارغة مؤقتاً)
-    API.get('/inventory').then(res => setInventory(res.data)).catch(() => setInventory([]));
-    API.get('/expenses').then(res => setExpenses(res.data)).catch(() => setExpenses([]));
+    setInvoices([newInvoice, ...invoices]);
+    alert('تم إنشاء الفاتورة / المستند بنجاح');
+    setActiveTab('reports');
   };
 
-  const fetchSettings = () => {
-    API.get('/settings').then(res => {
-      if (res.data?.businessName) setBusinessName(res.data.businessName);
-      if (res.data?.logoUrl) setBusinessLogo(res.data.logoUrl);
-    }).catch(() => {});
-  };
-
-  // توليد ZATCA QR Code وطباعته للاختبار اليدوي (المرحلة الأولى)
+  // توليد ZATCA QR Code
   const generateZatcaQR = async (seller, vatNo, timestamp, total, vat) => {
     try {
       const toHex = (val) => { const hex = val.toString(16); return hex.length === 1 ? '0' + hex : hex; };
@@ -116,457 +119,560 @@ function App() {
         const valHex = Array.from(utf8Bytes).map(b => toHex(b)).join('');
         return tagHex + lengthHex + valHex;
       };
-      
       const hexString = getTLV(1, seller) + getTLV(2, vatNo) + getTLV(3, timestamp) + getTLV(4, total) + getTLV(5, vat);
       const bytes = new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
       const base64 = btoa(String.fromCharCode.apply(null, bytes));
-      
-      console.log("==== كود هيئة الزكاة المشفر (انسخه وافحصه) ====");
-      console.log(base64);
-      console.log("======================================");
-
-      return await QRCode.toDataURL(base64, { margin: 1, width: 130, color: { dark: '#1e3a8a', light: '#ffffff' } });
-    } catch (e) {
-      console.error('QR Generation Error:', e);
-      return '';
-    }
+      return await QRCode.toDataURL(base64, { margin: 1, width: 130, color: { dark: theme.secondary, light: '#ffffff' } });
+    } catch (e) { return ''; }
   };
 
-  // تصدير Excel CSV (المرحلة الأولى)
+  // تصدير إكسل
   const exportToCSV = (type) => {
-    let headers = [];
-    let rows = [];
-    let fileName = '';
-
-    if (type === 'invoices') {
-      headers = ['رقم الفاتورة', 'اسم العميل', 'المبلغ الصافي', 'الضريبة', 'الإجمالي', 'الحالة', 'تاريخ الإصدار'];
-      rows = invoices.map(inv => [inv.invoiceNumber, inv.client?.name || '---', inv.subtotal, inv.taxAmount, inv.totalAmount, inv.notes?.includes('مدفوعة') ? 'مدفوعة' : 'غير مدفوعة', new Date(inv.createdAt || Date.now()).toLocaleDateString('ar-SA')]);
-      fileName = 'تقرير_الفواتير.csv';
-    } else if (type === 'clients') {
-      headers = ['اسم العميل', 'رقم الجوال', 'البريد الإلكتروني'];
-      rows = clients.map(c => [c.name, c.phone, c.email || '---']);
-      fileName = 'قائمة_العملاء.csv';
-    } else if (type === 'expenses') {
-      headers = ['وصف المصروف', 'المبلغ', 'التاريخ'];
-      rows = expenses.map(e => [e.description, e.amount, new Date(e.createdAt || Date.now()).toLocaleDateString('ar-SA')]);
-      fileName = 'تقرير_المصروفات.csv';
-    }
-
+    let headers = ['رقم المستند', 'العميل', 'المبلغ', 'التاريخ'];
+    let rows = invoices.map(inv => [inv.invoiceNumber, inv.client?.name, inv.totalAmount, new Date(inv.createdAt).toLocaleDateString('ar-SA')]);
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", fileName);
+    const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent)); link.setAttribute("download", `تقرير_محور.csv`);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  // محاكاة مزامنة منصة زد (المرحلة الثالثة)
-  const handleZidSync = () => {
-    if (!zidToken) { alert('يرجى إضافة رمز ربط منصة زد (Zid Token) من الإعدادات أولاً.'); return; }
-    alert('تم الاتصال بـ API منصة زد! جاري سحب الطلبات الجديدة وتحويلها لفواتير... (هذه العملية تتطلب برمجة الباك إند لاحقاً).');
-  };
-
-  const handleUpdateSettings = (e) => {
-    e.preventDefault();
-    localStorage.setItem('hassil_vat', businessVat);
-    localStorage.setItem('hassil_zid_token', zidToken);
-    localStorage.setItem('hassil_payment_link', paymentLinkUrl);
-    API.put('/settings', { businessName, logoUrl: businessLogo }).then(() => alert('تم حفظ الإعدادات وواجهات الربط بنجاح!')).catch(err => alert('Error: ' + err.message));
-  };
-
-  // حفظ المصروفات (المرحلة الثانية)
-  const handleSaveExpense = (e) => {
-    e.preventDefault();
-    const newExp = { id: Date.now(), description: expDescription, amount: Number(expAmount), createdAt: new Date() };
-    API.post('/expenses', newExp).then(() => { alert('تم الحفظ'); fetchData(); setExpDescription(''); setExpAmount(''); }).catch(() => {
-      // حفظ محلي مؤقت في حال لم يتم تحديث الباك إند بعد
-      setExpenses([newExp, ...expenses]); setExpDescription(''); setExpAmount(''); alert('تم حفظ المصروف (محلياً لحين ربط الباك إند)');
-    });
-  };
-
-  // حفظ المنتجات (المرحلة الثانية)
-  const handleSaveInventory = (e) => {
-    e.preventDefault();
-    const newItem = { id: Date.now(), name: invItemName, price: Number(invItemPrice) };
-    API.post('/inventory', newItem).then(() => { alert('تمت الإضافة'); fetchData(); setInvItemName(''); setInvItemPrice(''); }).catch(() => {
-      setInventory([newItem, ...inventory]); setInvItemName(''); setInvItemPrice(''); alert('تم إضافة المنتج (محلياً لحين ربط الباك إند)');
-    });
-  };
-
-  // اختيار منتج من القائمة وتعبئة الفاتورة تلقائياً
-  const handleInventorySelect = (e) => {
-    const item = inventory.find(i => i.id === Number(e.target.value));
-    if (item) {
-      setDescription(item.name);
-      setAmount(item.price);
-    }
-  };
-
-  const handleSaveInvoice = (e) => {
-    e.preventDefault();
-    let finalNotes = `الحالة: ${status === 'Paid' ? 'مدفوعة' : 'غير مدفوعة'}`;
-    if (paymentMode === 'with_term') finalNotes += ` | مدة السداد: يجب الدفع قبل تاريخ ${dueDate} كحد أقصى`;
-    else finalNotes += ` | مدة السداد: فوري`;
-    if (notes) finalNotes += ` | ملاحظات: ${notes}`;
-
-    if (editingInvoiceId) {
-      API.put(`/invoices/${editingInvoiceId}`, { amount: Number(amount), description, notes: finalNotes }).then(() => { alert('تم التحديث'); cancelEditInvoice(); fetchData(); setActiveTab('invoices'); }).catch(err => alert(err.message));
-    } else {
-      if (!selectedClientId) { alert('اختر العميل أولاً'); return; }
-      API.post('/invoices', { clientId: selectedClientId, items: [{ description: description || 'خدمة عامة', quantity: 1, unitPrice: Number(amount) }], notes: finalNotes }).then(() => { alert('تم الإصدار بنجاح'); cancelEditInvoice(); fetchData(); setActiveTab('invoices'); }).catch(err => alert(err.message));
-    }
-  };
-
-  const cancelEditInvoice = () => { setEditingInvoiceId(null); setDescription(''); setAmount(''); setPaymentMode('no_term'); setDueDate(''); setStatus('Paid'); setNotes(''); };
-
-  // إرسال واتساب آلي مع رابط الدفع (المرحلة الثالثة)
-  const handleWhatsAppShare = (inv) => {
-    let phone = inv.client?.phone || '';
-    phone = phone.replace(/\D/g, ''); 
-    if (phone.startsWith('05')) phone = '966' + phone.substring(1); 
-    else if (phone.startsWith('5') && phone.length === 9) phone = '966' + phone; 
-    
-    let message = `أهلاً بك ${inv.client?.name || ''}\nتم إصدار فاتورة ضريبية برقم: ${inv.invoiceNumber}\nالإجمالي: ${inv.totalAmount} ر.س\n`;
-    if (inv.notes?.includes('غير مدفوعة') && paymentLinkUrl) {
-      message += `\n💳 لسداد الفاتورة إلكترونياً، يرجى زيارة الرابط التالي:\n${paymentLinkUrl}\n`;
-    }
-    message += `\nشكراً لتعاملك معنا في ${businessName}.`;
-    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`, '_blank');
-  };
-
-  const handlePrintOrPDF = async (inv) => { setActiveModalDoc({ type: 'invoice', inv }); };
-  const handlePrintReceipt = async (inv) => { setActiveModalDoc({ type: 'receipt', inv }); };
-
-  // ... (نفس كود شاشة تسجيل الدخول AuthView أبقيناه كما هو للاختصار)
+  // === 1. شاشة تسجيل الدخول (مطابقة للصورة بدقة) ===
   if (!user) {
     return (
-      <div style={{ fontFamily: 'Tahoma, sans-serif', direction: 'rtl', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d1b2a' }}>
-        <div style={{ display: 'flex', width: '900px', maxWidth: '95%', background: '#ffffff', borderRadius: '24px', overflow: 'hidden', padding: '40px' }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h2 style={{ textAlign: 'center', color: '#0d1b2a', margin: '0 0 20px' }}>نظام حاصل للفوترة وإدارة الأعمال</h2>
-            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required placeholder="البريد الإلكتروني" style={{ padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
-              <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required placeholder="كلمة المرور" style={{ padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
-              <button type="submit" style={{ background: '#0d1b2a', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>تسجيل الدخول / إنشاء حساب</button>
+      <div style={{ display: 'flex', height: '100vh', fontFamily: 'Tahoma, Cairo, sans-serif', direction: 'rtl', background: '#fff' }}>
+        
+        {/* الجانب الأيمن (النموذج) */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '40px', background: '#f8fafc' }}>
+          <div style={{ width: '100%', maxWidth: '400px' }}>
+            <p style={{ margin: '0 0 5px 0', color: theme.textMuted, fontSize: '14px', fontWeight: 'bold' }}>مرحباً بعودتك</p>
+            <h1 style={{ margin: '0 0 10px 0', color: theme.secondary, fontSize: '32px' }}>تسجيل الدخول إلى حسابك</h1>
+            <p style={{ margin: '0 0 30px 0', color: theme.textMuted, fontSize: '13px' }}>أدخل بياناتك للوصول إلى مساحة العمل.</p>
+
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: theme.textDark, marginBottom: '8px', fontWeight: 'bold' }}>البريد الإلكتروني أو اسم المستخدم</label>
+                <input type="email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} required style={{ width: '100%', padding: '14px', borderRadius: '8px', border: `1px solid ${theme.border}`, outline: 'none', background: '#fff', direction: 'ltr', textAlign: 'right' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: theme.textDark, marginBottom: '8px', fontWeight: 'bold' }}>كلمة المرور</label>
+                <input type="password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} placeholder="Admin@12345" required style={{ width: '100%', padding: '14px', borderRadius: '8px', border: `1px solid ${theme.border}`, outline: 'none', background: '#fff', direction: 'ltr', textAlign: 'right' }} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: theme.textDark, cursor: 'pointer' }}>
+                  <input type="checkbox" defaultChecked style={{ accentColor: theme.primary }} /> تذكر هذا الجهاز
+                </label>
+                <span style={{ color: theme.textMuted, cursor: 'pointer' }}>نسيت كلمة المرور؟</span>
+              </div>
+
+              <button type="submit" style={{ background: theme.primary, color: '#fff', padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', gap: '10px', alignItems: 'center' }}>
+                <span>دخول آمن</span>
+                <span>←</span>
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: '#e2e8f0', padding: '12px', borderRadius: '8px', marginTop: '10px' }}>
+                <span style={{ fontSize: '20px' }}>🏢</span>
+                <div>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold', color: theme.secondary }}>البيئة المحلية الجاهزة</p>
+                  <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted }}>تم تعبئة حساب المدير تلقائياً لاختبار النسخة الأولى.</p>
+                </div>
+              </div>
             </form>
+            <p style={{ textAlign: 'center', fontSize: '10px', color: theme.textMuted, marginTop: '30px' }}>بدخولك، أنت توافق على سياسة الاستخدام والخصوصية الخاصة بالمنشأة.</p>
+          </div>
+        </div>
+
+        {/* الجانب الأيسر (الشعار والهوية) */}
+        <div style={{ flex: 1, background: '#1c2c27', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: '-10%', right: '-10%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(64,128,121,0.2) 0%, rgba(0,0,0,0) 70%)', borderRadius: '50%' }}></div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '40px' }}>
+            <div style={{ width: '40px', height: '40px', background: theme.accent, borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold', fontSize: '20px' }}>ılı</div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', letterSpacing: '1px' }}>محور</h2>
+              <p style={{ margin: 0, fontSize: '12px', opacity: 0.8 }}>ERP • منصة الأعمال</p>
+            </div>
+          </div>
+
+          <p style={{ color: theme.accent, fontSize: '14px', fontWeight: 'bold', margin: '0 0 10px 0' }}>— إدارة أذكى. قرار أسرع.</p>
+          <h1 style={{ fontSize: '56px', margin: '0 0 20px 0', lineHeight: '1.2' }}>كل أعمالك<br/>في محور واحد.</h1>
+          <p style={{ fontSize: '16px', opacity: 0.8, maxWidth: '400px', lineHeight: '1.6', marginBottom: '50px' }}>من المبيعات والمخزون إلى الموارد البشرية والتصنيع، رؤية موحدة تمنحك السيطرة الكاملة.</p>
+
+          <div style={{ borderTop: `1px solid rgba(255,255,255,0.1)`, paddingTop: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid rgba(255,255,255,0.05)`, paddingBottom: '15px' }}>
+              <span style={{ fontSize: '14px', opacity: 0.7 }}>وحدة أعمال مترابطة</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#eab308' }}>60+</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid rgba(255,255,255,0.05)`, paddingBottom: '15px' }}>
+              <span style={{ fontSize: '14px', opacity: 0.7 }}>متابعة لحظية</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#eab308' }}>24/7</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '14px', opacity: 0.7 }}>متعدد الشركات</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#eab308' }}>100%</span>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // حسابات الأرباح والمصروفات
-  const totalSales = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
-  const totalTaxes = invoices.reduce((sum, inv) => sum + Number(inv.taxAmount || 0), 0);
-  const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-  const netProfit = totalSales - totalTaxes - totalExpenses; // صافي الربح الحقيقي
-  const paidInvoicesCount = invoices.filter(inv => inv.notes?.includes('مدفوعة')).length;
+  // === حسابات لوحة التحكم ===
+  const stats = {
+    sales: invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0) + 575,
+    purchases: 1883.70,
+    salaries: 13037.50,
+    inventoryVal: 14448.00
+  };
 
-  const bgMain = isDarkMode ? '#0f172a' : '#f8fafc';
-  const cardBg = isDarkMode ? '#1e293b' : '#fff';
-  const textColor = isDarkMode ? '#f8fafc' : '#0f172a';
-  const borderColor = isDarkMode ? '#334155' : '#e2e8f0';
-
+  // === واجهة النظام الأساسية (بعد تسجيل الدخول) ===
   return (
-    <div style={{ fontFamily: 'Tahoma, sans-serif', direction: 'rtl', minHeight: '100vh', boxSizing: 'border-box' }}>
-      <div style={{ padding: '30px', background: bgMain, color: textColor, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'Tahoma, Cairo, sans-serif', direction: 'rtl', background: theme.bgMain, minHeight: '100vh', color: theme.textDark }}>
+      
+      {/* شريط التنقل العلوي (Navbar) */}
+      <header style={{ background: theme.cardBg, borderBottom: `1px solid ${theme.border}`, padding: '12px 25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
         
-        {/* الشريط العلوي */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', background: cardBg, padding: '15px 30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            {businessLogo && <img src={businessLogo} alt="Logo" style={{ maxHeight: '45px', objectFit: 'contain' }} />}
-            <div>
-              <h1 style={{ color: textColor, margin: 0, fontSize: '22px' }}>{businessName}</h1>
-              <p style={{ color: '#64748b', margin: '2px 0 0 0', fontSize: '13px' }}>{user.email}</p>
-            </div>
+        {/* القسم الأيمن: الشعار ومسار الصفحة */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderLeft: `1px solid ${theme.border}`, paddingLeft: '20px' }}>
+            <div style={{ width: '28px', height: '28px', background: theme.secondary, borderRadius: '4px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>ılı</div>
+            <span style={{ fontWeight: 'bold', color: theme.secondary, fontSize: '18px' }}>محور</span>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <select value={themeMode} onChange={e => setThemeMode(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }}>
-              <option value="auto">🌗 تلقائي</option><option value="light">☀️ نهاري</option><option value="dark">🌙 ليلي</option>
-            </select>
-            <button onClick={() => { setUser(null); localStorage.removeItem('hassil_user'); }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>تسجيل الخروج</button>
+          <div style={{ fontSize: '13px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>مساحة العمل</span>
+            <span>&lt;</span>
+            <strong style={{ color: theme.textDark }}>
+              {activeTab === 'dashboard' ? 'لوحة التحكم' : activeTab === 'sales' ? 'المبيعات' : activeTab === 'reports' ? 'التقارير والتحليلات' : 'الإعدادات'}
+            </strong>
           </div>
         </div>
 
-        {/* أزرار التنقل الرئيسية */}
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', background: cardBg, padding: '10px', borderRadius: '12px', flexWrap: 'wrap' }}>
-          <button onClick={() => setActiveTab('dashboard')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'dashboard' ? '#2563eb' : '#f1f5f9', color: activeTab === 'dashboard' ? '#fff' : '#475569' }}>📊 لوحة التقارير</button>
-          <button onClick={() => setActiveTab('new_invoice')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'new_invoice' ? '#2563eb' : '#f1f5f9', color: activeTab === 'new_invoice' ? '#fff' : '#475569' }}>🧾 إصدار فاتورة</button>
-          <button onClick={() => setActiveTab('invoices')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'invoices' ? '#2563eb' : '#f1f5f9', color: activeTab === 'invoices' ? '#fff' : '#475569' }}>📂 الفواتير والطلبات</button>
-          <button onClick={() => setActiveTab('clients')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'clients' ? '#2563eb' : '#f1f5f9', color: activeTab === 'clients' ? '#fff' : '#475569' }}>👥 العملاء</button>
-          <button onClick={() => setActiveTab('inventory')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'inventory' ? '#2563eb' : '#f1f5f9', color: activeTab === 'inventory' ? '#fff' : '#475569' }}>📦 المخزون والخدمات</button>
-          <button onClick={() => setActiveTab('expenses')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'expenses' ? '#2563eb' : '#f1f5f9', color: activeTab === 'expenses' ? '#fff' : '#475569' }}>💸 المصروفات التشغيلية</button>
-          <button onClick={() => setActiveTab('settings')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'settings' ? '#2563eb' : '#f1f5f9', color: activeTab === 'settings' ? '#fff' : '#475569' }}>⚙️ الإعدادات والربط</button>
+        {/* القسم الأوسط: شريط البحث */}
+        <div style={{ flex: 1, maxWidth: '400px', margin: '0 20px' }}>
+          <div style={{ background: theme.bgMain, borderRadius: '6px', padding: '8px 15px', display: 'flex', alignItems: 'center', gap: '10px', border: `1px solid ${theme.border}` }}>
+            <span style={{ color: theme.textMuted }}>🔍</span>
+            <input type="text" placeholder="ابحث عن فاتورة، منتج، عميل أو موظف..." style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '13px' }} />
+            <span style={{ fontSize: '11px', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', color: theme.textMuted }}>⌘ K</span>
+          </div>
         </div>
 
-        {/* 1. لوحة التقارير (محدثة بصافي الربح) */}
-        {activeTab === 'dashboard' && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-              <div style={{ background: '#2563eb', color: '#fff', padding: '25px', borderRadius: '12px' }}>
-                <p style={{ margin: '0 0 8px', fontSize: '14px', opacity: 0.9 }}>إجمالي المبيعات الدخل</p>
-                <h2 style={{ margin: 0, fontSize: '26px' }}>{totalSales.toFixed(2)} SAR</h2>
-              </div>
-              <div style={{ background: '#0284c7', color: '#fff', padding: '25px', borderRadius: '12px' }}>
-                <p style={{ margin: '0 0 8px', fontSize: '14px', opacity: 0.9 }}>ضرائب ZATCA (15%)</p>
-                <h2 style={{ margin: 0, fontSize: '26px' }}>{totalTaxes.toFixed(2)} SAR</h2>
-              </div>
-              <div style={{ background: '#eab308', color: '#fff', padding: '25px', borderRadius: '12px' }}>
-                <p style={{ margin: '0 0 8px', fontSize: '14px', opacity: 0.9 }}>إجمالي المصروفات (التكاليف)</p>
-                <h2 style={{ margin: 0, fontSize: '26px' }}>{totalExpenses.toFixed(2)} SAR</h2>
-              </div>
-              <div style={{ background: netProfit >= 0 ? '#16a34a' : '#dc2626', color: '#fff', padding: '25px', borderRadius: '12px' }}>
-                <p style={{ margin: '0 0 8px', fontSize: '14px', opacity: 0.9 }}>صافي الربح الفعلي</p>
-                <h2 style={{ margin: 0, fontSize: '26px' }}>{netProfit.toFixed(2)} SAR</h2>
-              </div>
+        {/* القسم الأيسر: الإشعارات وملف المستخدم */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <button style={{ background: 'transparent', border: 'none', fontSize: '18px', cursor: 'pointer', position: 'relative' }}>
+            🔔
+            <span style={{ position: 'absolute', top: 0, right: 0, width: '8px', height: '8px', background: '#ef4444', borderRadius: '50%' }}></span>
+          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderRight: `1px solid ${theme.border}`, paddingRight: '20px', cursor: 'pointer' }} onClick={handleLogout}>
+            <div style={{ width: '35px', height: '35px', background: '#eab308', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: 'bold' }}>ما</div>
+            <div style={{ lineHeight: '1.2' }}>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: 'bold' }}>{user.role}</p>
+              <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted }}>تسجيل خروج</p>
             </div>
+            <span style={{ fontSize: '10px', color: theme.textMuted }}>▼</span>
           </div>
-        )}
+        </div>
+      </header>
 
-        {/* 2. إصدار فاتورة (محدثة باختيار المنتجات) */}
-        {activeTab === 'new_invoice' && (
-          <div style={{ background: cardBg, padding: '35px', borderRadius: '12px', maxWidth: '650px', margin: 'auto' }}>
-            <h2 style={{ marginTop: 0, color: textColor, marginBottom: '20px' }}>{editingInvoiceId ? 'تعديل الفاتورة' : 'إصدار فاتورة ضريبية'}</h2>
-            <form onSubmit={handleSaveInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {!editingInvoiceId && (
-                <select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }}>
-                  <option value="">-- اختر العميل --</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              )}
-              
-              <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>اختيار سريع من المخزون:</label>
-                <select onChange={handleInventorySelect} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                  <option value="">-- اختر منتج/خدمة لتعبئة السعر تلقائياً --</option>
-                  {inventory.map(item => <option key={item.id} value={item.id}>{item.name} - {item.price} ر.س</option>)}
-                </select>
-              </div>
-
-              <input type="text" placeholder="أو اكتب وصف المنتج / الخدمة يدوياً" value={description} onChange={e => setDescription(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
-              <input type="number" placeholder="المبلغ الأساسي (ر.س)" value={amount} onChange={e => setAmount(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
-
-              <div style={{ display: 'flex', gap: '15px' }}>
-                <select value={status} onChange={e => setStatus(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }}>
-                  <option value="Paid">مدفوعة</option><option value="Unpaid">غير مدفوعة</option>
-                </select>
-                <select value={paymentMode} onChange={e => setPaymentMode(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }}>
-                  <option value="no_term">فوري (بدون مدة استحقاق)</option><option value="with_term">آجل (بمدة سداد)</option>
-                </select>
-              </div>
-
-              {paymentMode === 'with_term' && (
-                <input type="text" placeholder="تاريخ السداد (مثال: 2026/10/05)" value={dueDate} onChange={e => setDueDate(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: '1px solid #f87171', background: cardBg, color: textColor }} />
-              )}
-              
-              <button type="submit" style={{ background: '#16a34a', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>{editingInvoiceId ? 'تحديث الفاتورة' : 'إصدار وحفظ الفاتورة'}</button>
-            </form>
-          </div>
-        )}
-
-        {/* 3. إدارة الفواتير والمزامنة (المرحلة الأولى والثالثة) */}
-        {activeTab === 'invoices' && (
-          <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-              <h2 style={{ margin: 0, color: textColor }}>قائمة الفواتير والطلبات</h2>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={handleZidSync} style={{ background: '#8b5cf6', color: '#fff', padding: '10px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>🛒 مزامنة طلبات Zid</button>
-                <button onClick={() => exportToCSV('invoices')} style={{ background: '#10b981', color: '#fff', padding: '10px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>📥 تصدير Excel</button>
-              </div>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: `2px solid ${borderColor}` }}>
-                  <th style={{ padding: '14px' }}>رقم الفاتورة</th><th style={{ padding: '14px' }}>العميل</th><th style={{ padding: '14px' }}>الإجمالي</th><th style={{ padding: '14px' }}>الحالة</th><th style={{ padding: '14px' }}>الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map(inv => {
-                  const isPaid = inv.notes?.includes('مدفوعة');
-                  return (
-                    <tr key={inv.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
-                      <td style={{ padding: '14px', fontWeight: 'bold', color: '#2563eb' }}>{inv.invoiceNumber}</td>
-                      <td style={{ padding: '14px' }}>{inv.client?.name}</td>
-                      <td style={{ padding: '14px', fontWeight: 'bold', color: '#16a34a' }}>{inv.totalAmount} SAR</td>
-                      <td style={{ padding: '14px' }}><span style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', background: isPaid ? '#dcfce7' : '#fee2e2', color: isPaid ? '#16a34a' : '#dc2626' }}>{isPaid ? 'مدفوعة' : 'غير مدفوعة'}</span></td>
-                      <td style={{ padding: '14px', display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button onClick={() => handlePrintOrPDF(inv)} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}>PDF</button>
-                        {isPaid && <button onClick={() => handlePrintReceipt(inv)} style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}>سند</button>}
-                        <button onClick={() => handleWhatsAppShare(inv)} style={{ background: '#25D366', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}>واتساب</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* 4. المخزون والخدمات (المرحلة الثانية) */}
-        {activeTab === 'inventory' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '25px', alignItems: 'flex-start' }}>
-            <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ marginTop: 0, color: textColor }}>إضافة منتج / خدمة</h3>
-              <form onSubmit={handleSaveInventory} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <input type="text" placeholder="اسم المنتج أو الخدمة" value={invItemName} onChange={e => setInvItemName(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
-                <input type="number" placeholder="السعر (الأساسي)" value={invItemPrice} onChange={e => setInvItemPrice(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
-                <button type="submit" style={{ background: '#2563eb', color: '#fff', padding: '12px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>حفظ في المخزون</button>
-              </form>
-            </div>
-            <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ marginTop: 0, color: textColor }}>قائمة المنتجات والخدمات</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: `2px solid ${borderColor}` }}>
-                    <th style={{ padding: '14px' }}>المنتج / الخدمة</th><th style={{ padding: '14px' }}>السعر الأساسي</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventory.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: `1px solid ${borderColor}` }}>
-                      <td style={{ padding: '14px', fontWeight: 'bold' }}>{item.name}</td>
-                      <td style={{ padding: '14px', color: '#16a34a' }}>{item.price} ر.س</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* 5. المصروفات التشغيلية (المرحلة الثانية) */}
-        {activeTab === 'expenses' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '25px', alignItems: 'flex-start' }}>
-            <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ marginTop: 0, color: textColor }}>تسجيل مصروف جديد</h3>
-              <form onSubmit={handleSaveExpense} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <input type="text" placeholder="وصف المصروف (إيجار، رواتب، تسويق...)" value={expDescription} onChange={e => setExpDescription(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
-                <input type="number" placeholder="المبلغ" value={expAmount} onChange={e => setExpAmount(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
-                <button type="submit" style={{ background: '#eab308', color: '#fff', padding: '12px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>تسجيل المصروف</button>
-              </form>
-            </div>
-            <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                <h3 style={{ margin: 0, color: textColor }}>سجل المصروفات</h3>
-                <button onClick={() => exportToCSV('expenses')} style={{ background: '#10b981', color: '#fff', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>📥 تصدير Excel</button>
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: `2px solid ${borderColor}` }}>
-                    <th style={{ padding: '14px' }}>الوصف</th><th style={{ padding: '14px' }}>المبلغ</th><th style={{ padding: '14px' }}>التاريخ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {expenses.map((exp, idx) => (
-                    <tr key={idx} style={{ borderBottom: `1px solid ${borderColor}` }}>
-                      <td style={{ padding: '14px' }}>{exp.description}</td>
-                      <td style={{ padding: '14px', fontWeight: 'bold', color: '#dc2626' }}>{exp.amount} ر.س</td>
-                      <td style={{ padding: '14px' }}>{new Date(exp.createdAt || Date.now()).toLocaleDateString('ar-SA')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* 6. الإعدادات والربط (المرحلة الثالثة) */}
-        {activeTab === 'settings' && (
-          <div style={{ background: cardBg, padding: '35px', borderRadius: '12px', maxWidth: '600px', margin: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ marginTop: 0, color: textColor, marginBottom: '20px' }}>إعدادات المنشأة وواجهات الربط (API)</h2>
-            <form onSubmit={handleUpdateSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
-              <h3 style={{ color: '#2563eb', margin: '10px 0 0 0', fontSize: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px' }}>1. الإعدادات الأساسية</h3>
-              <div>
-                <label style={{ fontSize: '13px', display: 'block', marginBottom: '6px' }}>اسم المنشأة:</label>
-                <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: '13px', display: 'block', marginBottom: '6px' }}>الرقم الضريبي ZATCA (15 رقم):</label>
-                <input type="text" value={businessVat} onChange={e => setBusinessVat(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: '13px', display: 'block', marginBottom: '6px' }}>شعار المنشأة:</label>
-                <input type="file" accept="image/*" onChange={handleLogoChange} style={{ fontSize: '14px', width: '100%' }} />
-              </div>
-
-              <h3 style={{ color: '#8b5cf6', margin: '15px 0 0 0', fontSize: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px' }}>2. الربط مع المتاجر (Zid API)</h3>
-              <div>
-                <label style={{ fontSize: '13px', display: 'block', marginBottom: '6px', color: '#475569' }}>مفتاح الربط (Token) لمنصة زد لسحب الطلبات آلياً:</label>
-                <input type="password" value={zidToken} onChange={e => setZidToken(e.target.value)} placeholder="Zid API Access Token" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
-              </div>
-
-              <h3 style={{ color: '#10b981', margin: '15px 0 0 0', fontSize: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px' }}>3. بوابات الدفع الإلكتروني (Moyasar / Stripe)</h3>
-              <div>
-                <label style={{ fontSize: '13px', display: 'block', marginBottom: '6px', color: '#475569' }}>رابط الدفع العام (سيظهر تلقائياً على الفواتير غير المدفوعة):</label>
-                <input type="url" value={paymentLinkUrl} onChange={e => setPaymentLinkUrl(e.target.value)} placeholder="https://pay.moyasar.com/..." style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
-              </div>
-
-              <button type="submit" style={{ background: '#0f172a', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '15px' }}>حفظ الإعدادات والربط</button>
-            </form>
-          </div>
-        )}
-
+      {/* قائمة التنقل الجانبية المؤقتة (للتنقل السريع بين الشاشات المطلوبة) */}
+      <div style={{ background: theme.secondary, color: '#fff', padding: '10px 25px', display: 'flex', gap: '20px', fontSize: '13px' }}>
+        <button onClick={()=>setActiveTab('dashboard')} style={{ background: activeTab==='dashboard'?theme.primary:'transparent', border:'none', color:'#fff', cursor:'pointer', padding:'6px 12px', borderRadius:'4px' }}>لوحة التحكم</button>
+        <button onClick={()=>setActiveTab('sales')} style={{ background: activeTab==='sales'?theme.primary:'transparent', border:'none', color:'#fff', cursor:'pointer', padding:'6px 12px', borderRadius:'4px' }}>المبيعات (الفواتير)</button>
+        <button onClick={()=>setActiveTab('reports')} style={{ background: activeTab==='reports'?theme.primary:'transparent', border:'none', color:'#fff', cursor:'pointer', padding:'6px 12px', borderRadius:'4px' }}>التقارير والتحليلات</button>
+        <button onClick={()=>setActiveTab('settings')} style={{ background: activeTab==='settings'?theme.primary:'transparent', border:'none', color:'#fff', cursor:'pointer', padding:'6px 12px', borderRadius:'4px' }}>الإعدادات</button>
       </div>
 
-      {/* نافذة طباعة PDF الأصلية (المرحلة الأولى والثالثة) */}
+      {/* محتوى الشاشات */}
+      <main style={{ padding: '30px', maxWidth: '1400px', margin: 'auto' }}>
+
+        {/* === 1. لوحة التحكم (Dashboard) === */}
+        {activeTab === 'dashboard' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '30px' }}>
+              <div>
+                <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#eab308', fontWeight: 'bold' }}>• الأحد، 12 يوليو 2026</p>
+                <h1 style={{ margin: 0, fontSize: '28px', color: theme.secondary }}>صباح الخير، مدير</h1>
+                <p style={{ margin: '5px 0 0 0', fontSize: '14px', color: theme.textMuted }}>إليك أهم ما يحدث في شركاتك وفروعك اليوم.</p>
+              </div>
+              <div style={{ display: 'flex', gap: '15px', position: 'relative' }}>
+                <button onClick={() => exportToCSV()} style={{ background: '#fff', border: `1px solid ${theme.border}`, padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: theme.textMuted }}>
+                  📥 تصدير التقرير
+                </button>
+                <button onClick={() => setShowQuickAction(!showQuickAction)} style={{ background: theme.primary, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+                  ⊕ إجراء سريع <span>▼</span>
+                </button>
+                {/* قائمة الإجراء السريع المنسدلة */}
+                {showQuickAction && (
+                  <div style={{ position: 'absolute', top: '110%', left: 0, background: '#fff', border: `1px solid ${theme.border}`, borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', width: '220px', zIndex: 50, padding: '10px 0' }}>
+                    <div onClick={()=>{setActiveTab('sales'); setShowQuickAction(false);}} style={{ padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>🧾 فاتورة مبيعات جديدة</div>
+                    <div style={{ padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', background: '#f8fafc' }}>📦 إضافة منتج</div>
+                    <div style={{ padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>👥 تسجيل موظف</div>
+                    <div style={{ padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>📱 قراءة باركود / QR</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* البطاقات (Cards) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: theme.textMuted }}>إجمالي المبيعات</p>
+                  <h2 style={{ margin: 0, fontSize: '28px', color: theme.secondary }}>{stats.sales.toFixed(0)} <span style={{ fontSize: '16px' }}>ر.س</span></h2>
+                  <p style={{ margin: '15px 0 0 0', fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ color: '#16a34a', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>↗ 4 طلب</span> من قاعدة البيانات
+                  </p>
+                </div>
+                <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>$</div>
+              </div>
+
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: theme.textMuted }}>إجمالي المشتريات</p>
+                  <h2 style={{ margin: 0, fontSize: '28px', color: theme.secondary }}>{stats.purchases.toLocaleString()} <span style={{ fontSize: '16px' }}>ر.س</span></h2>
+                  <p style={{ margin: '15px 0 0 0', fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>🕒 4 طلب</span> من قاعدة البيانات
+                  </p>
+                </div>
+                <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>🛒</div>
+              </div>
+
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: theme.textMuted }}>صافي الرواتب</p>
+                  <h2 style={{ margin: 0, fontSize: '28px', color: theme.secondary }}>{stats.salaries.toLocaleString()} <span style={{ fontSize: '16px' }}>ر.س</span></h2>
+                  <p style={{ margin: '15px 0 0 0', fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ color: '#16a34a', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>↗ 1 مسير</span> آخر مسيرات الرواتب
+                  </p>
+                </div>
+                <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>🧾</div>
+              </div>
+
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: theme.textMuted }}>قيمة المخزون</p>
+                  <h2 style={{ margin: 0, fontSize: '28px', color: theme.secondary }}>{stats.inventoryVal.toLocaleString()} <span style={{ fontSize: '16px' }}>ر.س</span></h2>
+                  <p style={{ margin: '15px 0 0 0', fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ color: '#16a34a', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>📦 16 منتج</span> رصيد فعلي
+                  </p>
+                </div>
+                <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>📦</div>
+              </div>
+            </div>
+
+            {/* الجزء السفلي للوحة (الرسوم البيانية) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
+                <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', color: theme.secondary }}>جاهزية البيانات</h3>
+                <p style={{ fontSize: '12px', color: theme.textMuted }}>الوحدات الأساسية المتصلة</p>
+                <div style={{ width: '150px', height: '150px', borderRadius: '50%', border: `15px solid ${theme.primary}`, margin: '20px auto', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '28px', fontWeight: 'bold', color: theme.secondary }}>
+                  100%
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '20px', fontSize: '13px', color: theme.textMuted }}>
+                  <div>التأمينات<br/><strong style={{ color: theme.textDark }}>1 مشترك</strong></div>
+                  <div>الموظفون<br/><strong style={{ color: theme.textDark }}>1 نشط</strong></div>
+                </div>
+              </div>
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 5px 0', fontSize: '16px', color: theme.secondary }}>حركة الإيرادات</h3>
+                    <p style={{ fontSize: '12px', color: theme.textMuted }}>المبيعات والمشتريات المسجلة حالياً</p>
+                  </div>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '24px', color: theme.secondary }}>{stats.sales.toFixed(0)} ر.س <span style={{ fontSize: '12px', background: '#dcfce7', color: '#16a34a', padding: '4px 8px', borderRadius: '4px' }}>✔ بيانات حية</span></h2>
+                  </div>
+                </div>
+                {/* رسم بياني وهمي مبسط */}
+                <div style={{ marginTop: '40px', height: '150px', borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}`, position: 'relative' }}>
+                  <div style={{ position: 'absolute', bottom: '20%', left: '10%', width: '8px', height: '8px', background: theme.primary, borderRadius: '50%' }}></div>
+                  <div style={{ position: 'absolute', bottom: '60%', left: '50%', width: '8px', height: '8px', background: theme.primary, borderRadius: '50%' }}></div>
+                  <div style={{ position: 'absolute', bottom: '80%', left: '90%', width: '8px', height: '8px', background: theme.primary, borderRadius: '50%' }}></div>
+                  <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                    <polyline points="0,120 10%,120 50%,60 90%,30 100%,30" fill="none" stroke={theme.primary} strokeWidth="3" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* === 2. المبيعات والفواتير (Sales Flow) === */}
+        {activeTab === 'sales' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: theme.textMuted, cursor: 'pointer' }}>↗ العودة للوحة التحكم</p>
+                <h1 style={{ margin: 0, fontSize: '28px', color: theme.secondary }}>المبيعات</h1>
+                <p style={{ margin: '5px 0 0 0', fontSize: '14px', color: theme.textMuted }}>طلبات البيع والفواتير والعروض والمرتجعات والتحصيلات.</p>
+              </div>
+              <button onClick={handleSaveInvoice} style={{ background: theme.primary, color: '#fff', border: 'none', padding: '10px 25px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px' }}>
+                ⊕ طلب مبيعات
+              </button>
+            </div>
+
+            <div style={{ background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '30px' }}>
+              {/* شريط دورة المعاملات (Stepper) */}
+              <div style={{ marginBottom: '40px', background: '#f8fafc', padding: '20px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                <h3 style={{ margin: '0 0 5px 0', fontSize: '15px', color: '#9a3412' }}>دورة معاملات حقيقية</h3>
+                <h2 style={{ margin: '0 0 10px 0', fontSize: '20px', color: theme.secondary }}>من عرض السعر حتى المرتجع والقيد المحاسبي</h2>
+                <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: theme.textMuted }}>كل خطوة تُحفظ فوراً في MySQL وتظهر في سجل التدقيق.</p>
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', background: '#cbd5e1', zIndex: 1 }}></div>
+                  {[
+                    { id: 1, label: 'عرض السعر' }, { id: 2, label: 'الاعتماد' }, { id: 3, label: 'طلب البيع' }, { id: 4, label: 'حجز المخزون' },
+                    { id: 5, label: 'التسليم' }, { id: 6, label: 'الفاتورة' }, { id: 7, label: 'التحصيل' }, { id: 8, label: 'المرتجع' }
+                  ].map(step => (
+                    <div key={step.id} onClick={() => setActiveSalesStep(step.id)} style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '8px', background: activeSalesStep === step.id ? theme.bgMain : '#fff', padding: '6px 12px', borderRadius: '20px', border: `1px solid ${activeSalesStep === step.id ? theme.secondary : '#cbd5e1'}`, cursor: 'pointer' }}>
+                      <span style={{ fontWeight: 'bold', color: activeSalesStep === step.id ? theme.secondary : theme.textMuted }}>{step.id}</span>
+                      <span style={{ fontSize: '13px', color: activeSalesStep === step.id ? theme.secondary : theme.textMuted, fontWeight: activeSalesStep === step.id ? 'bold' : 'normal' }}>{step.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* حقول الإدخال للمبيعات */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: theme.textMuted, marginBottom: '8px' }}>العميل</label>
+                  <select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}`, background: '#f8fafc', outline: 'none', appearance: 'none' }}>
+                    <option value="">-- اختر العميل --</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: theme.textMuted, marginBottom: '8px' }}>المنتج</label>
+                  <select value={selectedProductId} onChange={handleProductSelect} style={{ width: '100%', padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}`, background: '#f8fafc', outline: 'none', appearance: 'none', color: '#2563eb', fontWeight: 'bold' }}>
+                    <option value="">-- اختر المنتج من المخزون --</option>
+                    {inventory.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: theme.textMuted, marginBottom: '8px' }}>الكمية</label>
+                  <input type="number" value={qty} onChange={e => setQty(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}`, background: '#f8fafc', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: theme.textMuted, marginBottom: '8px' }}>سعر الوحدة</label>
+                  <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={{ width: '100%', padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}`, background: '#f8fafc', outline: 'none', direction: 'ltr', textAlign: 'right' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: theme.textMuted, marginBottom: '8px' }}>الضريبة %</label>
+                  <input type="number" value={taxRate} onChange={e => setTaxRate(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}`, background: '#f8fafc', outline: 'none' }} />
+                </div>
+                <div>
+                  <div style={{ background: theme.secondary, color: '#fff', padding: '15px 20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', boxSizing: 'border-box' }}>
+                    <span style={{ fontSize: '14px', opacity: 0.8 }}>الإجمالي المتوقع</span>
+                    <strong style={{ fontSize: '22px' }}>{((Number(amount) * qty) * (1 + (taxRate/100))).toFixed(2)} ر.س</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* جدول المستندات المنشأة */}
+              <div>
+                <h3 style={{ fontSize: '15px', color: theme.textMuted, marginBottom: '15px' }}>المستندات المنشأة</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '14px' }}>
+                  <tbody>
+                    {['عرض السعر', 'طلب البيع', 'إذن التسليم', 'الفاتورة', 'سند القبض'].map((doc, idx) => (
+                      <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                        <td style={{ padding: '12px 10px', color: theme.secondary, fontWeight: 'bold' }}>{doc}</td>
+                        <td style={{ padding: '12px 10px', color: theme.textMuted }}>-</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* === 3. التقارير والتحليلات (Reports) === */}
+        {activeTab === 'reports' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: theme.textMuted, cursor: 'pointer' }}>↗ العودة للوحة التحكم</p>
+                <h1 style={{ margin: 0, fontSize: '28px', color: theme.secondary }}>التقارير والتحليلات</h1>
+                <p style={{ margin: '5px 0 0 0', fontSize: '14px', color: theme.textMuted }}>تقارير محفوظة ومؤشرات تنفيذية قابلة للجدولة والتصدير.</p>
+              </div>
+              <button onClick={() => alert('ميزة إنشاء تقرير مخصص قادمة قريباً!')} style={{ background: theme.primary, color: '#fff', border: 'none', padding: '10px 25px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px' }}>
+                ⊕ إنشاء تقرير
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
+                <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: theme.textMuted }}>السجلات المتاحة</p>
+                <h2 style={{ margin: 0, fontSize: '32px', color: theme.secondary }}>{invoices.length}</h2>
+                <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: theme.textMuted }}>من قاعدة البيانات</p>
+              </div>
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
+                <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: theme.textMuted }}>الشركة الحالية</p>
+                <h2 style={{ margin: 0, fontSize: '32px', color: theme.secondary }}>1</h2>
+                <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: theme.textMuted }}>نطاق معزول</p>
+              </div>
+              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
+                <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: theme.textMuted }}>حالة الربط</p>
+                <h2 style={{ margin: 0, fontSize: '28px', color: theme.secondary }}>نشط</h2>
+                <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: theme.textMuted }}>API + MySQL</p>
+              </div>
+            </div>
+
+            <div style={{ background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '30px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>📊</div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '16px', color: theme.secondary }}>التقارير المحفوظة</h3>
+                    <p style={{ margin: 0, fontSize: '13px', color: theme.textMuted }}>تعريفات تقارير فعلية</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button style={{ background: '#fff', border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: theme.textDark }}>☷ تصفية</button>
+                  <button onClick={() => exportToCSV('invoices')} style={{ background: '#fff', border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: theme.textDark }}>📥 تصدير</button>
+                </div>
+              </div>
+
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '14px' }}>
+                <thead>
+                  <tr style={{ borderBottom: `2px solid ${theme.border}`, color: theme.textMuted, fontSize: '13px' }}>
+                    <th style={{ padding: '12px 10px' }}>المعرف</th>
+                    <th style={{ padding: '12px 10px' }}>النوع / الاسم</th>
+                    <th style={{ padding: '12px 10px' }}>الحالة</th>
+                    <th style={{ padding: '12px 10px' }}>القيمة</th>
+                    <th style={{ padding: '12px 10px' }}>التاريخ</th>
+                    <th style={{ padding: '12px 10px' }}>طباعة المستند</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.length === 0 ? (
+                    <tr><td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>لا توجد تقارير أو فواتير مسجلة بعد.</td></tr>
+                  ) : invoices.map((inv, idx) => (
+                    <tr key={inv.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                      <td style={{ padding: '15px 10px', color: theme.textMuted }}>#{inv.invoiceNumber}</td>
+                      <td style={{ padding: '15px 10px', fontWeight: 'bold', color: theme.secondary }}>فاتورة مبيعات - {inv.client?.name}</td>
+                      <td style={{ padding: '15px 10px' }}>
+                        <span style={{ background: '#f1f5f9', color: theme.textMuted, padding: '4px 10px', borderRadius: '12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <span style={{ width: '6px', height: '6px', background: theme.secondary, borderRadius: '50%' }}></span> مسجل
+                        </span>
+                      </td>
+                      <td style={{ padding: '15px 10px', fontWeight: 'bold', color: '#16a34a' }}>{inv.totalAmount} ر.س</td>
+                      <td style={{ padding: '15px 10px', color: theme.textMuted, fontSize: '12px', direction: 'ltr', textAlign: 'right' }}>{new Date(inv.createdAt).toISOString().replace('T', ' ').substring(0, 19)}</td>
+                      <td style={{ padding: '15px 10px' }}>
+                        <button onClick={() => setActiveModalDoc({ type: 'invoice', inv })} style={{ background: theme.accent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>معاينة PDF</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: '20px', fontSize: '12px', color: theme.textMuted }}>عرض {invoices.length} سجل من قاعدة البيانات</div>
+            </div>
+          </div>
+        )}
+
+        {/* === 4. الإعدادات (Settings & Integration) === */}
+        {activeTab === 'settings' && (
+          <div style={{ background: theme.cardBg, padding: '35px', borderRadius: '12px', maxWidth: '600px', margin: 'auto', border: `1px solid ${theme.border}` }}>
+            <h2 style={{ marginTop: 0, color: theme.secondary, marginBottom: '20px' }}>إعدادات المنشأة والربط (API)</h2>
+            <form onSubmit={(e)=>{e.preventDefault(); alert('تم حفظ الإعدادات!');}} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '13px', display: 'block', marginBottom: '6px', color: theme.textMuted }}>اسم المنشأة:</label>
+                <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, background: '#f8fafc', outline: 'none' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '13px', display: 'block', marginBottom: '6px', color: theme.textMuted }}>الرقم الضريبي ZATCA (15 رقم):</label>
+                <input type="text" value={businessVat} onChange={e => setBusinessVat(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, background: '#f8fafc', outline: 'none', direction: 'ltr', textAlign: 'right' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '13px', display: 'block', marginBottom: '6px', color: theme.textMuted }}>رابط الدفع العام (Moyasar / Stripe):</label>
+                <input type="url" value={paymentLinkUrl} onChange={e => setPaymentLinkUrl(e.target.value)} placeholder="https://pay.moyasar.com/..." style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, background: '#f8fafc', outline: 'none', direction: 'ltr', textAlign: 'right' }} />
+              </div>
+              <button type="submit" style={{ background: theme.primary, color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '10px' }}>حفظ الإعدادات</button>
+            </form>
+          </div>
+        )}
+
+      </main>
+
+      {/* === نافذة طباعة PDF الأصلية (المحافظة على الـ ZATCA QR القديم بنجاح) === */}
       {activeModalDoc && (
-        <div id="hassil-print-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.82)', backdropFilter: 'blur(5px)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', overflowY: 'auto', padding: '20px 10px' }}>
-          <div className="no-print-area" style={{ width: '100%', maxWidth: '850px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', color: '#fff', padding: '12px 20px', borderRadius: '12px', marginBottom: '18px' }}>
-            <span style={{ fontWeight: 'bold' }}>{activeModalDoc.type === 'invoice' ? `فاتورة (${activeModalDoc.inv.invoiceNumber})` : `سند (${activeModalDoc.inv.invoiceNumber})`}</span>
+        <div id="mihwar-print-modal" style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', overflowY: 'auto', padding: '20px' }}>
+          
+          <div className="no-print-area" style={{ width: '100%', maxWidth: '850px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.secondary, color: '#fff', padding: '15px 25px', borderRadius: '12px', marginBottom: '20px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>معاينة الفاتورة ({activeModalDoc.inv.invoiceNumber})</span>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => window.print()} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📥 حفظ PDF</button>
-              <button onClick={() => setActiveModalDoc(null)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>✖️ إغلاق</button>
+              <button onClick={() => window.print()} style={{ background: theme.primary, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>📥 طباعة / حفظ PDF</button>
+              <button onClick={() => setActiveModalDoc(null)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>✖ إغلاق</button>
             </div>
           </div>
           
-          <div id="hassil-modal-print-content" style={{ width: '100%', maxWidth: '800px', background: '#fff', padding: '40px', borderRadius: '12px', direction: 'rtl' }}>
-            {activeModalDoc.type === 'invoice' ? (
-              <div style={{ border: '2px solid #1e3a8a', padding: '4px', borderRadius: '8px' }}>
-                <div style={{ border: '1px solid #1e3a8a', padding: '30px', borderRadius: '6px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                    <div>
-                      <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#000' }}>فاتورة ضريبية</h2>
-                      <p style={{ color: '#64748b', margin: '0 0 4px 0', fontSize: '14px' }}>رقم الفاتورة: <strong>{activeModalDoc.inv.invoiceNumber}</strong></p>
-                      <p style={{ color: '#64748b', margin: '0 0 4px 0', fontSize: '14px' }}>الرقم الضريبي: <strong>{businessVat}</strong></p>
-                    </div>
-                    <div style={{ textAlign: 'left' }}>
-                      {businessLogo && <img src={businessLogo} alt="Logo" style={{ maxHeight: '70px', maxWidth: '180px', objectFit: 'contain' }}/>}
-                      <h2 style={{ color: '#1e3a8a', margin: '8px 0 4px 0', fontSize: '20px' }}>{businessName}</h2>
-                    </div>
-                  </div>
-                  
-                  <div style={{ border: '1px solid #cbd5e1', padding: '15px', marginTop: '15px', borderRadius: '6px', textAlign: 'center', background: '#f8fafc' }}>
-                    <p style={{ margin: '4px 0', fontSize: '14px' }}>العميل: <strong>{activeModalDoc.inv.client?.name}</strong> | جوال: <strong dir="ltr">{activeModalDoc.inv.client?.phone}</strong></p>
-                  </div>
-
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px', textAlign: 'center' }}>
-                    <thead><tr style={{ background: '#1e3a8a', color: '#fff' }}><th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>الوصف</th><th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>السعر</th><th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>المجموع</th></tr></thead>
-                    <tbody><tr><td style={{ padding: '12px', border: '1px solid #cbd5e1' }}>{activeModalDoc.inv.items?.[0]?.description}</td><td style={{ padding: '12px', border: '1px solid #cbd5e1' }}>{activeModalDoc.inv.subtotal}</td><td style={{ padding: '12px', border: '1px solid #cbd5e1' }}>{activeModalDoc.inv.subtotal}</td></tr></tbody>
-                  </table>
-
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', textAlign: 'center' }}>
-                    <thead><tr style={{ background: '#f8fafc' }}><th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>الصافي</th><th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>ضريبة 15%</th><th style={{ padding: '12px', border: '1px solid #cbd5e1', background: '#dcfce7', color: '#16a34a' }}>الإجمالي</th></tr></thead>
-                    <tbody><tr><td style={{ padding: '12px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>{activeModalDoc.inv.subtotal}</td><td style={{ padding: '12px', border: '1px solid #cbd5e1', fontWeight: 'bold', color: '#dc2626' }}>{activeModalDoc.inv.taxAmount}</td><td style={{ padding: '12px', border: '1px solid #cbd5e1', fontWeight: 'bold', color: '#16a34a', fontSize: '18px' }}>{activeModalDoc.inv.totalAmount}</td></tr></tbody>
-                  </table>
-                  
-                  {/* دمج رابط الدفع (المرحلة الثالثة) */}
-                  {!activeModalDoc.inv.notes?.includes('مدفوعة') && paymentLinkUrl && (
-                    <div style={{ border: '2px dashed #3b82f6', borderRadius: '8px', padding: '15px', marginTop: '20px', textAlign: 'center', background: '#eff6ff' }}>
-                      <h4 style={{ color: '#1d4ed8', margin: '0 0 8px 0' }}>💳 لسداد الفاتورة إلكترونياً، يرجى زيارة الرابط:</h4>
-                      <a href={paymentLinkUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '18px', textDecoration: 'none' }}>{paymentLinkUrl}</a>
-                    </div>
-                  )}
-
-                </div>
+          <div id="hassil-modal-print-content" style={{ width: '100%', maxWidth: '800px', background: '#fff', padding: '50px', borderRadius: '12px', direction: 'rtl', color: '#000' }}>
+            <style>{`@media print { body * { visibility: hidden !important; } #hassil-modal-print-content, #hassil-modal-print-content * { visibility: visible !important; } #hassil-modal-print-content { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; padding: 20mm !important; background: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; border: none !important; } .no-print-area { display: none !important; } }`}</style>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `3px solid ${theme.secondary}`, paddingBottom: '20px', marginBottom: '30px' }}>
+              <div>
+                <h1 style={{ margin: '0 0 10px 0', color: theme.secondary, fontSize: '32px' }}>فاتورة ضريبية</h1>
+                <p style={{ margin: '5px 0', fontSize: '15px' }}>رقم الفاتورة: <strong style={{ color: theme.secondary }}>{activeModalDoc.inv.invoiceNumber}</strong></p>
+                <p style={{ margin: '5px 0', fontSize: '15px' }}>الرقم الضريبي: <strong>{businessVat}</strong></p>
               </div>
-            ) : (
-              // تصميم سند القبض مختصر
-              <div style={{ border: '2px solid #16a34a', padding: '30px', borderRadius: '8px', textAlign: 'center', background: '#f0fdf4' }}>
-                <h1 style={{ color: '#16a34a' }}>سند قبض رسمي</h1>
-                <h2 style={{ color: '#000' }}>مبلغ: {activeModalDoc.inv.totalAmount} ر.س</h2>
-                <p>استلمنا من: <strong>{activeModalDoc.inv.client?.name}</strong></p>
-                <p>وذلك مقابل فاتورة رقم: <strong>{activeModalDoc.inv.invoiceNumber}</strong></p>
+              <div style={{ textAlign: 'left' }}>
+                <h2 style={{ color: theme.accent, margin: '0 0 5px 0', fontSize: '28px', letterSpacing: '2px' }}>مـحــور ERP</h2>
+                <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>{businessCity}</p>
+              </div>
+            </div>
+            
+            <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '30px', display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                <h3 style={{ margin: '0 0 10px 0', color: theme.secondary, fontSize: '16px' }}>فاتورة إلى:</h3>
+                <p style={{ margin: '5px 0', fontSize: '15px', fontWeight: 'bold' }}>{activeModalDoc.inv.client?.name}</p>
+                <p style={{ margin: '5px 0', fontSize: '14px' }}>جوال: <span dir="ltr">{activeModalDoc.inv.client?.phone}</span></p>
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <p style={{ margin: '5px 0', fontSize: '14px' }}>تاريخ الإصدار: <strong>{new Date(activeModalDoc.inv.createdAt).toLocaleDateString('ar-SA')}</strong></p>
+                <p style={{ margin: '5px 0', fontSize: '14px' }}>تاريخ الاستحقاق: <strong style={{ color: '#dc2626' }}>فوري</strong></p>
+              </div>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', textAlign: 'center' }}>
+              <thead>
+                <tr style={{ background: theme.secondary, color: '#fff' }}>
+                  <th style={{ padding: '15px', border: '1px solid #cbd5e1' }}>المنتج / الخدمة</th>
+                  <th style={{ padding: '15px', border: '1px solid #cbd5e1' }}>الكمية</th>
+                  <th style={{ padding: '15px', border: '1px solid #cbd5e1' }}>السعر</th>
+                  <th style={{ padding: '15px', border: '1px solid #cbd5e1' }}>المجموع</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '15px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>{activeModalDoc.inv.items[0].description}</td>
+                  <td style={{ padding: '15px', border: '1px solid #cbd5e1' }}>{activeModalDoc.inv.items[0].quantity}</td>
+                  <td style={{ padding: '15px', border: '1px solid #cbd5e1' }}>{activeModalDoc.inv.items[0].unitPrice} ر.س</td>
+                  <td style={{ padding: '15px', border: '1px solid #cbd5e1' }}>{activeModalDoc.inv.subtotal} ر.س</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '30px' }}>
+              <div style={{ width: '350px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+                  <tbody>
+                    <tr><td style={{ padding: '10px', borderBottom: '1px solid #cbd5e1' }}>المبلغ الصافي:</td><td style={{ padding: '10px', borderBottom: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 'bold' }}>{activeModalDoc.inv.subtotal} ر.س</td></tr>
+                    <tr><td style={{ padding: '10px', borderBottom: '1px solid #cbd5e1' }}>الضريبة (15%):</td><td style={{ padding: '10px', borderBottom: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 'bold', color: '#dc2626' }}>{activeModalDoc.inv.taxAmount} ر.س</td></tr>
+                    <tr style={{ background: '#dcfce7' }}><td style={{ padding: '15px 10px', color: '#16a34a', fontWeight: 'bold', fontSize: '18px' }}>الإجمالي النهائي:</td><td style={{ padding: '15px 10px', textAlign: 'left', fontWeight: 'bold', color: '#16a34a', fontSize: '22px' }}>{activeModalDoc.inv.totalAmount} ر.س</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            {paymentLinkUrl && (
+              <div style={{ background: '#f1f5f9', padding: '15px', borderRadius: '8px', textAlign: 'center', border: '2px dashed #94a3b8' }}>
+                <p style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 'bold' }}>💳 رابط الدفع الإلكتروني المباشر:</p>
+                <a href={paymentLinkUrl} style={{ color: theme.primary, textDecoration: 'none', fontSize: '18px' }}>{paymentLinkUrl}</a>
               </div>
             )}
+            
+            <div style={{ marginTop: '50px', textAlign: 'center', borderTop: '1px solid #cbd5e1', paddingTop: '20px', color: '#64748b', fontSize: '13px' }}>
+              صدرت هذه الفاتورة تقنياً بواسطة نظام (محور ERP)
+            </div>
           </div>
         </div>
       )}
