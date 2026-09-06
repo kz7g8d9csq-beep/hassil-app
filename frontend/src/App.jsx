@@ -1,5 +1,7 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import API from './services/api';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -56,7 +58,7 @@ function App() {
   const [notes, setNotes] = useState('');
   const [editingInvoiceId, setEditingInvoiceId] = useState(null);
   
-  // حالة المعاينة والطباعة وتصدير PDF (نافذة ذكية)
+  // حالة المعاينة والطباعة
   const [activeModalDoc, setActiveModalDoc] = useState(null);
 
   useEffect(() => {
@@ -264,19 +266,244 @@ function App() {
     window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  // فتح معاينة الفاتورة
+  // ========== وظائف الطباعة المحدثة المطابقة للتصميم الأصلي (حاصل + جولد جم) ==========
   const handlePrintOrPDF = (inv) => {
-    setActiveModalDoc({ type: 'invoice', inv });
+    const isPaid = inv.notes?.includes('Paid') || inv.notes?.includes('مدفوعة');
+    const dueDateMatch = inv.notes?.match(/تاريخ\s+([0-9\/\-]+)/);
+    const dueDateText = dueDateMatch ? dueDateMatch[1] : 'فوري (بدون مدة استحقاق)';
+    const itemDesc = inv.items?.[0]?.description || 'خدمة عامة';
+    const invoiceDate = new Date().toLocaleDateString('ar-SA');
+
+    const htmlContent = `<!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+        <head>
+          <meta charset="UTF-8">
+          <title>فاتورة ضريبية - ${inv.invoiceNumber}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { font-family: 'Tajawal', Tahoma, Arial, sans-serif; padding: 0; margin: 0; background: #fff; color: #1e293b; }
+            .print-container { max-width: 800px; margin: auto; padding: 30px; border: 1px solid transparent; }
+            .header-flex { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+            
+            /* الجانب الأيمن (نص الفاتورة) */
+            .header-right h1 { margin: 0 0 10px 0; font-size: 26px; color: #0f172a; }
+            .header-right p { margin: 4px 0; font-size: 14px; color: #475569; }
+            .status-text { font-weight: bold; color: ${isPaid ? '#16a34a' : '#dc2626'}; }
+            
+            /* الجانب الأيسر (الشعار والمنشأة) */
+            .header-left { text-align: left; }
+            .header-left img { max-height: 75px; max-width: 180px; object-fit: contain; margin-bottom: 8px; }
+            .header-left h2 { color: #1e3a8a; margin: 0 0 4px 0; font-size: 22px; }
+            .header-left p { margin: 0; font-size: 14px; color: #64748b; }
+
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; text-align: center; font-size: 14px; }
+            th, td { border: 1px solid #cbd5e1; padding: 12px; }
+            
+            /* جدول التواريخ */
+            .dates-table th { background: #f8fafc; color: #1e3a8a; font-weight: bold; }
+            
+            /* بيانات العميل */
+            .client-box { border: 1px solid #cbd5e1; padding: 20px; margin-bottom: 20px; border-radius: 4px; text-align: center; background: #f8fafc; }
+            .client-box h3 { color: #1e3a8a; margin: 0 0 12px 0; font-size: 16px; }
+            .client-box p { margin: 6px 0; font-size: 14px; }
+
+            /* جدول البنود */
+            .items-table th { background: #1e3a8a; color: #ffffff; font-weight: bold; }
+            .items-table td { font-weight: 500; }
+
+            /* جدول الإجماليات */
+            .totals-table th { background: #f8fafc; color: #0f172a; font-weight: bold; }
+            .totals-table .final-th { background: #dcfce7; color: #16a34a; }
+            .totals-table .final-td { color: #16a34a; font-size: 18px; font-weight: bold; }
+            
+            /* التنبيه الأحمر */
+            .warning-box { border: 2px solid #ef4444; color: #dc2626; padding: 15px; text-align: center; border-radius: 6px; font-weight: bold; font-size: 14px; background: #fef2f2; margin-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="print-container">
+            <div class="header-flex">
+              <div class="header-right">
+                <h1>فاتورة ضريبية</h1>
+                <p>رقم الفاتورة: <strong>${inv.invoiceNumber}</strong></p>
+                <p>الحالة: <span class="status-text">${isPaid ? 'مدفوعة' : 'غير مدفوعة'}</span></p>
+              </div>
+              <div class="header-left">
+                ${businessLogo ? `<img src="${businessLogo}" alt="شعار المنشأة" />` : ''}
+                <h2>${businessName}</h2>
+                <p>${businessCity}</p>
+              </div>
+            </div>
+
+            <table class="dates-table">
+              <tr>
+                <th style="width: 50%;">تاريخ الإصدار</th>
+                <th style="width: 50%;">تاريخ الاستحقاق (آخر موعد للسداد)</th>
+              </tr>
+              <tr>
+                <td>${invoiceDate}</td>
+                <td style="color: #dc2626; font-weight: bold;">${dueDateText}</td>
+              </tr>
+            </table>
+
+            <div class="client-box">
+              <h3>بيانات العميل</h3>
+              <p>اسم العميل: <strong>${inv.client?.name || '---'}</strong></p>
+              <p>رقم الجوال: <strong dir="ltr">${inv.client?.phone || '---'}</strong></p>
+              <p>البريد الإلكتروني: <strong>${inv.client?.email || '---'}</strong></p>
+            </div>
+
+            <table class="items-table">
+              <tr>
+                <th style="width: 40%;">وصف المنتج / الخدمة</th>
+                <th style="width: 15%;">الكمية</th>
+                <th style="width: 20%;">السعر الفردي</th>
+                <th style="width: 25%;">المجموع</th>
+              </tr>
+              <tr>
+                <td>${itemDesc}</td>
+                <td>1</td>
+                <td>${inv.subtotal} ر.س</td>
+                <td>${inv.subtotal} ر.س</td>
+              </tr>
+            </table>
+
+            <table class="totals-table">
+              <tr>
+                <th style="width: 33.33%;">المبلغ الصافي</th>
+                <th style="width: 33.33%;">ضريبة القيمة المضافة (15%)</th>
+                <th class="final-th" style="width: 33.33%;">الإجمالي النهائي</th>
+              </tr>
+              <tr>
+                <td><strong>${inv.subtotal} ر.س</strong></td>
+                <td style="color: #dc2626;"><strong>${inv.taxAmount} ر.س</strong></td>
+                <td class="final-td">${inv.totalAmount} ر.س</td>
+              </tr>
+            </table>
+
+            ${!isPaid ? `
+            <div class="warning-box">
+              ⚠️ تنبيه: في حال عدم السداد خلال المدة المحددة أعلاه، سيتم اتخاذ الإجراءات القانونية اللازمة وإبلاغ الجهات المعنية.
+            </div>
+            ` : ''}
+          </div>
+        </body>
+      </html>
+    `;
+
+    let iframe = document.getElementById('print-iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'print-iframe';
+      iframe.style.position = 'absolute';
+      iframe.style.width = '0px';
+      iframe.style.height = '0px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+    }
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 500);
   };
 
-  // فتح معاينة سند القبض
   const handlePrintReceipt = (inv) => {
-    setActiveModalDoc({ type: 'receipt', inv });
-  };
+    const receiptDate = new Date().toLocaleDateString('ar-SA');
 
-  // وظيفة الطباعة وحفظ PDF الاعتمادية
-  const triggerNativePrint = () => {
-    window.print();
+    const htmlContent = `<!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+        <head>
+          <meta charset="UTF-8">
+          <title>سند قبض - ${inv.invoiceNumber}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { font-family: 'Tajawal', Tahoma, Arial, sans-serif; padding: 0; margin: 0; background: #fff; color: #1e293b; }
+            
+            /* المربع الخارجي والداخلي */
+            .print-container { max-width: 750px; margin: 20px auto; }
+            .outer-border { border: 2px solid #3b82f6; padding: 4px; border-radius: 8px; }
+            .inner-border { border: 1px solid #3b82f6; padding: 35px; border-radius: 4px; }
+            
+            /* الترويسة */
+            .header-flex { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 20px; }
+            .header-right h1 { margin: 0 0 10px 0; font-size: 24px; color: #1e3a8a; }
+            .header-right p { margin: 4px 0; font-size: 14px; color: #475569; }
+            
+            .header-left { text-align: left; }
+            .header-left img { max-height: 75px; max-width: 180px; object-fit: contain; margin-bottom: 8px; }
+            .header-left h2 { color: #1e3a8a; margin: 0 0 4px 0; font-size: 20px; }
+            .header-left p { margin: 0; font-size: 14px; color: #64748b; }
+
+            /* شريط المبلغ الأخضر */
+            .amount-banner { background: #dcfce7; border: 1px solid #86efac; padding: 15px; text-align: center; margin: 20px 0 30px 0; border-radius: 6px; }
+            .amount-banner h3 { margin: 0; color: #16a34a; font-size: 18px; }
+
+            /* نصوص السند */
+            .content-text p { font-size: 16px; line-height: 2.2; margin: 10px 0; text-align: center; }
+            
+            /* التواقيع */
+            .footer-signatures { display: flex; justify-content: space-between; margin-top: 60px; font-weight: bold; font-size: 15px; color: #334155; }
+          </style>
+        </head>
+        <body>
+          <div class="print-container">
+            <div class="outer-border">
+              <div class="inner-border">
+                
+                <div class="header-flex">
+                  <div class="header-right">
+                    <h1>سند قبض رسمي</h1>
+                    <p>رقم الفاتورة المرتبطة: <strong style="color: #0f172a;">${inv.invoiceNumber}</strong></p>
+                  </div>
+                  <div class="header-left">
+                    ${businessLogo ? `<img src="${businessLogo}" alt="شعار المنشأة" />` : ''}
+                    <h2>${businessName}</h2>
+                    <p>${businessCity}</p>
+                  </div>
+                </div>
+
+                <div class="amount-banner">
+                  <h3>المبلغ المقبوض: ${inv.totalAmount} ريال سعودي فقط لا غير</h3>
+                </div>
+
+                <div class="content-text">
+                  <p>استلمنا من المكرم / الأستاذ(ة): <strong>${inv.client?.name || '---'}</strong></p>
+                  <p>رقم الجوال: <strong dir="ltr">${inv.client?.phone || '---'}</strong></p>
+                  <p>مبلغ وقدره: <strong>${inv.totalAmount} ر.س</strong> <span style="font-size: 14px; color: #64748b;">(شامل ضريبة القيمة المضافة 15%)</span></p>
+                  <p>وذلك مقابل: <strong>سداد قيمة الفاتورة الضريبية رقم (${inv.invoiceNumber})</strong></p>
+                  <p>تاريخ الاستلام / الإصدار: <strong>${receiptDate}</strong></p>
+                </div>
+
+                <div class="footer-signatures">
+                  <p>المحاسب / المسؤول: ........................</p>
+                  <p>ختم وتوقيع المنشأة: ........................</p>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    let iframe = document.getElementById('print-iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'print-iframe';
+      iframe.style.position = 'absolute';
+      iframe.style.width = '0px';
+      iframe.style.height = '0px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+    }
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 500);
   };
 
   if (!user) {
@@ -627,286 +854,6 @@ function App() {
           </div>
         )}
       </div>
-
-      {/* نافذة المعاينة والطباعة والتحميل الذكية (المحرك الأصلي لحفظ الحقوق العربية) */}
-      {activeModalDoc && (
-        <div
-          id="hassil-print-modal-overlay"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.82)',
-            backdropFilter: 'blur(5px)',
-            zIndex: 999999,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            overflowY: 'auto',
-            padding: '20px 10px',
-            boxSizing: 'border-box'
-          }}
-        >
-          <style>
-            {`
-              @media print {
-                body * {
-                  visibility: hidden !important;
-                }
-                #hassil-modal-print-content, #hassil-modal-print-content * {
-                  visibility: visible !important;
-                }
-                #hassil-modal-print-content {
-                  position: absolute !important;
-                  left: 0 !important;
-                  top: 0 !important;
-                  width: 100% !important;
-                  margin: 0 !important;
-                  padding: 15mm 20mm !important;
-                  background: #ffffff !important;
-                  color: #000000 !important;
-                  box-shadow: none !important;
-                  border: none !important;
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                }
-                .no-print-area {
-                  display: none !important;
-                }
-              }
-            `}
-          </style>
-
-          {/* شريط الإجراءات العلوي */}
-          <div
-            className="no-print-area"
-            style={{
-              width: '100%',
-              maxWidth: '850px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              background: '#1e293b',
-              color: '#fff',
-              padding: '12px 20px',
-              borderRadius: '12px',
-              marginBottom: '18px',
-              boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '20px' }}>
-                {activeModalDoc.type === 'invoice' ? '🧾' : '📜'}
-              </span>
-              <span style={{ fontWeight: 'bold', fontSize: '16px' }}>
-                {activeModalDoc.type === 'invoice'
-                  ? `معاينة الفاتورة الضريبية (${activeModalDoc.inv.invoiceNumber})`
-                  : `معاينة سند القبض (${activeModalDoc.inv.invoiceNumber})`}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={triggerNativePrint}
-                style={{
-                  background: '#10b981',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '10px 18px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)'
-                }}
-              >
-                📥 تحميل PDF / طباعة
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveModalDoc(null)}
-                style={{
-                  background: '#475569',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '10px 16px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '14px'
-                }}
-              >
-                ✖️ إغلاق
-              </button>
-            </div>
-            
-            <div style={{ width: '100%', textAlign: 'center', fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-              💡 تلميح: لحفظ الملف كـ PDF باللغة العربية الصحيحة، اضغط على الزر الأخضر، ثم اختر الوجهة: "حفظ بتنسيق PDF".
-            </div>
-          </div>
-
-          {/* محتوى المستند المراد طباعته وتصديره كـ PDF */}
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '850px',
-              overflowX: 'auto',
-              display: 'flex',
-              justifyContent: 'center',
-              paddingBottom: '30px'
-            }}
-          >
-            <div
-              id="hassil-modal-print-content"
-              style={{
-                width: '100%',
-                maxWidth: '800px',
-                minWidth: '650px',
-                background: '#ffffff',
-                color: '#1e293b',
-                padding: '40px',
-                borderRadius: '12px',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
-                direction: lang === 'ar' ? 'rtl' : 'ltr',
-                fontFamily: 'Tahoma, Arial, sans-serif',
-                boxSizing: 'border-box'
-              }}
-            >
-              {activeModalDoc.type === 'invoice' ? (
-                /* ============= تصميم الفاتورة الضريبية ============= */
-                <div style={{ border: '2px solid #1e3a8a', padding: '4px', borderRadius: '8px' }}>
-                  <div style={{ border: '1px solid #1e3a8a', padding: '30px', borderRadius: '6px' }}>
-                    
-                    {/* ترويسة الفاتورة */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                      <div>
-                        <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#000' }}>فاتورة ضريبية</h2>
-                        <p style={{ color: '#64748b', margin: '0 0 4px 0', fontSize: '14px' }}>رقم الفاتورة: <strong style={{ color: '#000' }}>{activeModalDoc.inv.invoiceNumber}</strong></p>
-                        <p style={{ margin: '0', fontSize: '15px', fontWeight: 'bold', color: '#000' }}>
-                          الحالة: <span style={{ color: activeModalDoc.inv.notes?.includes('مدفوعة') ? '#16a34a' : '#dc2626' }}>{activeModalDoc.inv.notes?.includes('مدفوعة') ? 'مدفوعة' : 'غير مدفوعة'}</span>
-                        </p>
-                      </div>
-                      <div style={{ textAlign: lang === 'ar' ? 'left' : 'right' }}>
-                        <h2 style={{ color: '#1e3a8a', margin: '0 0 4px 0', fontSize: '22px' }}>{businessName}</h2>
-                        <p style={{ margin: '0', fontSize: '14px', color: '#64748b' }}>{businessCity}</p>
-                      </div>
-                    </div>
-
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ background: '#f8fafc', color: '#1e3a8a', border: '1px solid #cbd5e1', padding: '10px', width: '50%' }}>تاريخ الإصدار</th>
-                          <th style={{ background: '#f8fafc', color: '#1e3a8a', border: '1px solid #cbd5e1', padding: '10px', width: '50%' }}>تاريخ الاستحقاق (آخر موعد للسداد)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '10px' }}>{new Date().toLocaleDateString('ar-SA')}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>
-                            {(() => {
-                              const match = activeModalDoc.inv.notes?.match(/تاريخ\s+([0-9\/\-]+)/);
-                              return match ? match[1] : 'فوراً';
-                            })()}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    <div style={{ border: '1px solid #cbd5e1', padding: '15px', marginTop: '15px', borderRadius: '6px', textAlign: 'center', background: '#f8fafc' }}>
-                      <h4 style={{ color: '#1e3a8a', margin: '0 0 10px 0', fontSize: '16px' }}>بيانات العميل</h4>
-                      <p style={{ margin: '4px 0', fontSize: '14px' }}>اسم العميل: <strong>{activeModalDoc.inv.client?.name || '---'}</strong></p>
-                      <p style={{ margin: '4px 0', fontSize: '14px' }}>رقم الجوال: <strong dir="ltr">{activeModalDoc.inv.client?.phone || '---'}</strong></p>
-                      <p style={{ margin: '4px 0', fontSize: '14px' }}>البريد الإلكتروني: <strong dir="ltr">{activeModalDoc.inv.client?.email || '---'}</strong></p>
-                    </div>
-
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>
-                      <thead>
-                        <tr style={{ background: '#1e3a8a', color: '#fff' }}>
-                          <th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>وصف المنتج أو الخدمة</th>
-                          <th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>الكمية</th>
-                          <th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>السعر الفردي</th>
-                          <th style={{ padding: '12px', border: '1px solid #cbd5e1' }}>المجموع</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style={{ padding: '12px', border: '1px solid #cbd5e1' }}>{activeModalDoc.inv.items?.[0]?.description || 'خدمة عامة'}</td>
-                          <td style={{ padding: '12px', border: '1px solid #cbd5e1' }}>1</td>
-                          <td style={{ padding: '12px', border: '1px solid #cbd5e1' }}>{Number(activeModalDoc.inv.subtotal || 0).toFixed(2)} ر.س</td>
-                          <td style={{ padding: '12px', border: '1px solid #cbd5e1' }}>{Number(activeModalDoc.inv.subtotal || 0).toFixed(2)} ر.س</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th style={{ padding: '12px', border: '1px solid #cbd5e1', width: '33.33%' }}>المبلغ الصافي</th>
-                          <th style={{ padding: '12px', border: '1px solid #cbd5e1', width: '33.33%' }}>ضريبة القيمة المضافة (15%)</th>
-                          <th style={{ padding: '12px', border: '1px solid #cbd5e1', width: '33.33%', background: '#dcfce7', color: '#16a34a' }}>الإجمالي النهائي</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style={{ padding: '12px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>{Number(activeModalDoc.inv.subtotal || 0).toFixed(2)} ر.س</td>
-                          <td style={{ padding: '12px', border: '1px solid #cbd5e1', fontWeight: 'bold', color: '#dc2626' }}>{Number(activeModalDoc.inv.taxAmount || 0).toFixed(2)} ر.س</td>
-                          <td style={{ padding: '12px', border: '1px solid #cbd5e1', fontWeight: 'bold', color: '#16a34a', fontSize: '18px' }}>{Number(activeModalDoc.inv.totalAmount || 0).toFixed(2)} ر.س</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {!activeModalDoc.inv.notes?.includes('مدفوعة') && (
-                      <div style={{ border: '1px solid #dc2626', borderRadius: '6px', padding: '12px', marginTop: '20px', textAlign: 'center', color: '#dc2626', background: '#fef2f2', fontSize: '14px' }}>
-                        <strong>⚠️ تنبيه: في حال عدم السداد خلال المدة المحددة أعلاه، سيتم اتخاذ الإجراءات القانونية اللازمة وإبلاغ الجهات المعنية.</strong>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* ============= تصميم سند القبض الرسمي ============= */
-                <div style={{ border: '2px solid #3b82f6', padding: '4px', borderRadius: '8px' }}>
-                  <div style={{ border: '1px solid #3b82f6', padding: '35px', borderRadius: '6px' }}>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-                      <div>
-                        <h2 style={{ color: '#1e3a8a', margin: '0 0 5px 0', fontSize: '22px' }}>سند قبض رسمي</h2>
-                        <p style={{ margin: '0', fontSize: '14px', color: '#64748b' }}>رقم الفاتورة المرتبطة: <strong style={{ color: '#000' }}>{activeModalDoc.inv.invoiceNumber}</strong></p>
-                      </div>
-                      <div style={{ textAlign: lang === 'ar' ? 'left' : 'right' }}>
-                        <h2 style={{ color: '#1e3a8a', margin: '0 0 5px 0', fontSize: '22px' }}>{businessName}</h2>
-                        <p style={{ margin: '0', fontSize: '14px', color: '#64748b' }}>المملكة العربية السعودية - جدة</p>
-                      </div>
-                    </div>
-
-                    <div style={{ background: '#dcfce7', border: '1px solid #86efac', padding: '15px', textAlign: 'center', margin: '20px 0', borderRadius: '6px' }}>
-                      <h3 style={{ margin: '0', color: '#16a34a', fontSize: '18px' }}>المبلغ المقبوض: {Number(activeModalDoc.inv.totalAmount || 0).toFixed(2)} ريال سعودي فقط لا غير</h3>
-                    </div>
-
-                    <div style={{ fontSize: '16px', lineHeight: '2.2', textAlign: 'center' }}>
-                      <p style={{ margin: '8px 0' }}>استلمنا من المكرم / الأستاذ(ة): <strong>{activeModalDoc.inv.client?.name || '---'}</strong></p>
-                      <p style={{ margin: '8px 0' }}>رقم الجوال: <strong dir="ltr">{activeModalDoc.inv.client?.phone || '---'}</strong></p>
-                      <p style={{ margin: '8px 0' }}>مبلغ وقدره: <strong>{Number(activeModalDoc.inv.totalAmount || 0).toFixed(2)} ر.س</strong> (شامل ضريبة القيمة المضافة 15%)</p>
-                      <p style={{ margin: '8px 0' }}>وذلك مقابل: <strong>سداد قيمة الفاتورة الضريبية رقم ({activeModalDoc.inv.invoiceNumber})</strong></p>
-                      <p style={{ margin: '8px 0' }}>تاريخ الاستلام / الإصدار: <strong>{new Date().toLocaleDateString('ar-SA')}</strong></p>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px', paddingTop: '20px', borderTop: '1px dashed #cbd5e1', fontWeight: 'bold' }}>
-                      <p style={{ margin: '0' }}>المحاسب / المسؤول: ........................</p>
-                      <p style={{ margin: '0' }}>ختم وتوقيع المنشأة: ........................</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
