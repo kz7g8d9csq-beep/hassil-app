@@ -96,7 +96,7 @@ app.post(['/forgot-password', '/api/forgot-password', '/api/api/forgot-password'
   }
 });
 
-// مسارات المخزون (تم إضافة cost لتتوافق مع جدول Product في Prisma)
+// مسارات المخزون (تم ضبط الحقول الإلزامية لتجنب أي خطأ في Prisma)
 app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
   try {
     const products = await prisma.product.findMany({ where: { companyId: req.companyId } });
@@ -121,9 +121,11 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
         companyId: Number(req.companyId),
         name: String(name),
         price: numericPrice,
-        cost: numericPrice, // جعل التكلفة مساوية للسعر مؤقتاً لتجنب خطأ حقل cost الإلزامي
+        cost: numericPrice,
         stock: Number(stock) || 0,
-        sku: `SKU-${Date.now().toString().slice(-6)}`
+        sku: `SKU-${Date.now().toString().slice(-6)}`,
+        hasSerial: false,
+        isActive: true
       }
     });
 
