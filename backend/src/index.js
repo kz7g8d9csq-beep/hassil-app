@@ -108,6 +108,7 @@ app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res)
 });
 
 app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
+  const { name, price, stock } = req.body;
   const { name, price, cost, sku, barcode, categoryId, unitId, hasSerial } = req.body;
   try {
     if (!name || price === undefined) {
@@ -117,10 +118,17 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
     const numericPrice = Number(price);
     const numericCost = cost !== undefined ? Number(cost) : numericPrice;
 
+    // استخدام كود إنشاء متوافق تماماً مع حقول جدول Product الإجبارية
     // إنشاء المنتج بالحقول المطابقة تماماً لجدول Product في schema.prisma
     // ملاحظة: لا يوجد حقل stock في جدول Product — المخزون يُدار عبر جدول InventoryBalance
     const newProduct = await prisma.product.create({
       data: {
+        companyId: Number(req.companyId),
+        name: String(name),
+        price: numericPrice,
+        cost: numericPrice,
+        stock: Number(stock) || 0,
+        sku: `SKU-${Date.now()}`
         companyId:  Number(req.companyId),
         name:       String(name).trim(),
         price:      numericPrice,
