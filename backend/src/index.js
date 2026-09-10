@@ -96,7 +96,7 @@ app.post(['/forgot-password', '/api/forgot-password', '/api/api/forgot-password'
   }
 });
 
-// مسارات المخزون المستقرة والنهائية
+// مسارات المخزون المحسنة لحل مشكلة الحفظ جذرياً
 app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
   try {
     const products = await prisma.product.findMany({ where: { companyId: req.companyId } });
@@ -116,7 +116,7 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
 
     const numericPrice = Number(price);
 
-    // استخدام طريقة الإنشـاء الآمنة المتوافقة تماماً مع أعمدة جدول Product
+    // استخدام كود إنشاء متوافق تماماً مع حقول جدول Product الإجبارية
     const newProduct = await prisma.product.create({
       data: {
         companyId: Number(req.companyId),
@@ -130,8 +130,8 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
 
     res.json({ message: 'تم إضافة المنتج للمخزون بنجاح', product: newProduct });
   } catch (error) {
-    console.error('PRISMA CREATE PRODUCT ERROR:', error);
-    res.status(500).json({ error: 'تعذر حفظ المنتج في قاعدة البيانات' });
+    console.error('CRITICAL DB ERROR:', error.message);
+    res.status(500).json({ error: `خطأ قاعدة البيانات: ${error.message}` });
   }
 });
 
