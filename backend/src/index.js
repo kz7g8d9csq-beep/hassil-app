@@ -96,7 +96,7 @@ app.post(['/forgot-password', '/api/forgot-password', '/api/api/forgot-password'
   }
 });
 
-// مسارات المخزون (تم ضبط الحقول الإلزامية لتجنب أي خطأ في Prisma)
+// مسارات المخزون المتوافقة تماماً مع قيود جدول Product
 app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
   try {
     const products = await prisma.product.findMany({ where: { companyId: req.companyId } });
@@ -124,15 +124,18 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
         cost: numericPrice,
         stock: Number(stock) || 0,
         sku: `SKU-${Date.now().toString().slice(-6)}`,
+        barcode: `BAR-${Math.floor(Math.random() * 900000000 + 100000000)}`,
         hasSerial: false,
-        isActive: true
+        isActive: true,
+        categoryId: null,
+        unitId: null
       }
     });
 
     res.json({ message: 'تم إضافة المنتج للمخزون بنجاح', product: newProduct });
   } catch (error) {
-    console.error('DETAIL PRISMA ERROR:', error);
-    res.status(500).json({ error: error.message || 'حدث خطأ أثناء حفظ المنتج في قاعدة البيانات' });
+    console.error('DATABASE ERROR:', error);
+    res.status(500).json({ error: 'تعذر حفظ المنتج، تأكد من صحة الحقول المدخلة' });
   }
 });
 
