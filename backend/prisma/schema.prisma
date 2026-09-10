@@ -7,87 +7,393 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           Int       @id @default(autoincrement())
-  businessName String    @db.VarChar(200)
-  clientName   String?   @db.VarChar(200)
-  email        String    @unique @db.VarChar(255)
-  password     String    @db.VarChar(255)
-  phone        String?   @db.VarChar(30)
-  logoUrl      String?   @db.Text
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+// ==========================================
+// 1. النظام الأساسي والإدارة (Core & Multi-Tenancy)
+// ==========================================
 
-  clients      Client[]
-  invoices     Invoice[]
+model Company {
+  id          Int       @id @default(autoincrement())
+  name        String
+  vatNumber   String?   
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  @@map("users")
+  branches         Branch[]
+  roles            Role[]
+  users            User[]
+  auditLogs        AuditLog[]
+  categories       ProductCategory[]
+  units            Unit[]
+  products         Product[]
+  warehouses       Warehouse[]
+  customers        Customer[]
+  suppliers        Supplier[]
+  invoices         Invoice[]
+  periods          FinancialPeriod[]
+  accounts         ChartOfAccount[]
+  journalEntries   JournalEntry[]
+  
+  // علاقات التصنيع والـ HR
+  boms             BillOfMaterial[]
+  productionOrders ProductionOrder[]
+  departments      Department[]
+  employees        Employee[]
+  attendances      Attendance[]
 }
 
-model Client {
-  id        Int       @id @default(autoincrement())
-  userId    Int
-  name      String    @db.VarChar(200)
-  phone     String    @db.VarChar(30)
-  email     String?   @db.VarChar(255)
-  notes     String?   @db.Text
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+model Branch {
+  id          Int       @id @default(autoincrement())
+  companyId   Int       
+  name        String
+  location    String?
+  createdAt   DateTime  @default(now())
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  invoices  Invoice[]
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users       User[]
+  warehouses  Warehouse[]
+  invoices    Invoice[]
+}
 
-  @@map("clients")
+model Role {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String    
+  permissions Json      
+  createdAt   DateTime  @default(now())
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users       User[]
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  branchId    Int?      
+  roleId      Int?      
+  name        String
+  email       String    @unique
+  password    String    
+  phone       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch      Branch?   @relation(fields: [branchId], references: [id])
+  role        Role?     @relation(fields: [roleId], references: [id])
+  auditLogs   AuditLog[]
+  employee    Employee? // ربط حساب الدخول بملف الموظف في الـ HR
+}
+
+model AuditLog {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  userId      Int
+  action      String    
+  details     Json?     
+  ipAddress   String?   
+  createdAt   DateTime  @default(now())
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+// ==========================================
+// 2. المنتجات والأصناف (Products & Catalog)
+// ==========================================
+
+model ProductCategory {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String
+  createdAt   DateTime  @default(now())
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products    Product[]
+}
+
+model Unit {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String    
+  createdAt   DateTime  @default(now())
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products    Product[]
+}
+
+model Product {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  categoryId  Int?
+  unitId      Int?
+  
+  name        String
+  sku         String?
+  barcode     String?
+  price       Decimal   @db.Decimal(10, 2)
+  cost        Decimal   @db.Decimal(10, 2) 
+  hasSerial   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category       ProductCategory?  @relation(fields: [categoryId], references: [id])
+  unit           Unit?             @relation(fields: [unitId], references: [id])
+  invoiceItems   InvoiceItem[]
+  inventory      InventoryBalance[]
+  
+  // علاقات التصنيع (منتج نهائي أو مادة خام)
+  bomsAsFinal    BillOfMaterial[]  @relation("BomProduct")
+  bomItemsAsRaw  BomItem[]         @relation("BomItemProduct")
+}
+
+// ==========================================
+// 3. المخزون والمستودعات (Inventory & Warehouses)
+// ==========================================
+
+model Warehouse {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  branchId    Int
+  name        String
+  location    String?
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch      Branch    @relation(fields: [branchId], references: [id])
+  balances    InventoryBalance[]
+}
+
+model InventoryBalance {
+  id          Int       @id @default(autoincrement())
+  warehouseId Int
+  productId   Int
+  quantity    Decimal   @db.Decimal(10, 2)
+  
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, productId]) 
+}
+
+// ==========================================
+// 4. المبيعات والمشتريات (Sales & Purchases)
+// ==========================================
+
+model Customer {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String
+  phone       String?
+  email       String?
+  taxNumber   String?
+  creditLimit Decimal?  @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices    Invoice[]
+}
+
+model Supplier {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String
+  phone       String?
+  email       String?
+  taxNumber   String?
+  createdAt   DateTime  @default(now())
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model Invoice {
-  id             Int           @id @default(autoincrement())
-  userId         Int
-  clientId       Int
-  invoiceNumber  String        @unique @db.VarChar(50)
-  type           InvoiceType   @default(INVOICE)
-  status         InvoiceStatus @default(DRAFT)
-  issueDate      DateTime      @default(now())
-  dueDate        DateTime?
-  subtotal       Decimal       @db.Decimal(10, 2)
-  taxRate        Decimal       @default(0.15) @db.Decimal(5, 4)
-  taxAmount      Decimal       @db.Decimal(10, 2)
-  totalAmount    Decimal       @db.Decimal(10, 2)
-  notes          String?       @db.Text
-  sentAt         DateTime?
-  lastReminderAt DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id            Int       @id @default(autoincrement())
+  companyId     Int
+  branchId      Int
+  customerId    Int
+  
+  invoiceNumber String
+  status        String    
+  subtotal      Decimal   @db.Decimal(10, 2)
+  taxAmount     Decimal   @db.Decimal(10, 2)
+  totalAmount   Decimal   @db.Decimal(10, 2)
+  
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime?
+  notes         String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client         Client        @relation(fields: [clientId], references: [id])
-  items          InvoiceItem[]
-
-  @@map("invoices")
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  items         InvoiceItem[]
 }
 
 model InvoiceItem {
-  id          Int     @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   invoiceId   Int
-  description String  @db.VarChar(500)
-  quantity    Decimal @db.Decimal(10, 2)
-  unitPrice   Decimal @db.Decimal(10, 2)
-  total       Decimal @db.Decimal(10, 2)
+  productId   Int
+  
+  quantity    Decimal   @db.Decimal(10, 2)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  taxRate     Decimal   @db.Decimal(5, 2) 
+  total       Decimal   @db.Decimal(10, 2)
 
-  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  @@map("invoice_items")
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id])
 }
 
-enum InvoiceType {
-  INVOICE
-  QUOTATION
+// ==========================================
+// 5. المحاسبة والمالية (Accounting & Finance)
+// ==========================================
+
+model FinancialPeriod {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String    
+  startDate   DateTime
+  endDate     DateTime
+  isClosed    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  entries     JournalEntry[]
 }
 
-enum InvoiceStatus {
-  DRAFT
-  SENT
-  PAID
-  OVERDUE
-  CANCELLED
+model ChartOfAccount {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  code        String    
+  name        String    
+  type        String    // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  parentId    Int?      
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent      ChartOfAccount?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    ChartOfAccount[] @relation("AccountHierarchy")
+  lines       JournalEntryLine[]
+  
+  @@unique([companyId, code])
+}
+
+model JournalEntry {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  periodId    Int?
+  reference   String    
+  date        DateTime  @default(now())
+  description String?
+  status      String    @default("DRAFT") // DRAFT, POSTED
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period      FinancialPeriod? @relation(fields: [periodId], references: [id])
+  lines       JournalEntryLine[]
+}
+
+model JournalEntryLine {
+  id              Int       @id @default(autoincrement())
+  journalEntryId  Int
+  accountId       Int
+  
+  debit           Decimal   @db.Decimal(15, 2) @default(0.00) 
+  credit          Decimal   @db.Decimal(15, 2) @default(0.00) 
+  description     String?
+
+  journalEntry    JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account         ChartOfAccount @relation(fields: [accountId], references: [id])
+}
+
+// ==========================================
+// 6. التصنيع والإنتاج (Manufacturing & BOM)
+// ==========================================
+
+// وصفة التصنيع (مكونات المنتج النهائي)
+model BillOfMaterial {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  productId   Int       // المنتج النهائي المراد تصنيعه
+  name        String?
+  createdAt   DateTime  @default(now())
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product     Product   @relation("BomProduct", fields: [productId], references: [id])
+  items       BomItem[]
+  productionOrders ProductionOrder[]
+}
+
+// المواد الخام المطلوبة للوصفة
+model BomItem {
+  id          Int       @id @default(autoincrement())
+  bomId       Int
+  productId   Int       // المادة الخام
+  quantity    Decimal   @db.Decimal(10, 4)
+
+  bom         BillOfMaterial @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  product     Product        @relation("BomItemProduct", fields: [productId], references: [id])
+}
+
+// أمر الإنتاج الفعلي
+model ProductionOrder {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  bomId       Int
+  quantity    Decimal   @db.Decimal(10, 2)
+  status      String    @default("PLANNED") // PLANNED, IN_PROGRESS, COMPLETED
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bom         BillOfMaterial @relation(fields: [bomId], references: [id])
+}
+
+// ==========================================
+// 7. الموارد البشرية (Human Resources)
+// ==========================================
+
+model Department {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String
+  
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees   Employee[]
+}
+
+model Employee {
+  id           Int       @id @default(autoincrement())
+  companyId    Int
+  userId       Int?      @unique // لربط الموظف بحساب الدخول للنظام (إن وجد)
+  departmentId Int?
+  
+  firstName    String
+  lastName     String
+  basicSalary  Decimal   @db.Decimal(10, 2)
+  hireDate     DateTime
+  status       String    @default("ACTIVE") // ACTIVE, ON_LEAVE, TERMINATED
+  
+  company      Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user         User?       @relation(fields: [userId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id])
+  attendances  Attendance[]
+}
+
+model Attendance {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  employeeId  Int
+  date        DateTime  @db.Date
+  checkIn     DateTime?
+  checkOut    DateTime?
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
