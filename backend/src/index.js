@@ -96,7 +96,7 @@ app.post(['/forgot-password', '/api/forgot-password', '/api/api/forgot-password'
   }
 });
 
-// مسارات المخزون المتوافقة تماماً مع قيود جدول Product
+// مسارات المخزون المستقرة والنهائية
 app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
   try {
     const products = await prisma.product.findMany({ where: { companyId: req.companyId } });
@@ -116,6 +116,7 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
 
     const numericPrice = Number(price);
 
+    // استخدام طريقة الإنشـاء الآمنة المتوافقة تماماً مع أعمدة جدول Product
     const newProduct = await prisma.product.create({
       data: {
         companyId: Number(req.companyId),
@@ -123,19 +124,14 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
         price: numericPrice,
         cost: numericPrice,
         stock: Number(stock) || 0,
-        sku: `SKU-${Date.now().toString().slice(-6)}`,
-        barcode: `BAR-${Math.floor(Math.random() * 900000000 + 100000000)}`,
-        hasSerial: false,
-        isActive: true,
-        categoryId: null,
-        unitId: null
+        sku: `SKU-${Date.now()}`
       }
     });
 
     res.json({ message: 'تم إضافة المنتج للمخزون بنجاح', product: newProduct });
   } catch (error) {
-    console.error('DATABASE ERROR:', error);
-    res.status(500).json({ error: 'تعذر حفظ المنتج، تأكد من صحة الحقول المدخلة' });
+    console.error('PRISMA CREATE PRODUCT ERROR:', error);
+    res.status(500).json({ error: 'تعذر حفظ المنتج في قاعدة البيانات' });
   }
 });
 
