@@ -10,13 +10,10 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// ==========================================
-// 1. طبقة الحماية وعزل البيانات (Tenant Isolation Middleware)
-// ==========================================
+// طبقة الحماية وعزل البيانات
 app.use(async (req, res, next) => {
   if (req.method === 'OPTIONS') return next();
 
-  // الاستثناء الذهبي: السماح لطلبات الدخول، التسجيل، واستعادة المرور بالمرور بدون الهيدر
   const url = req.path.toLowerCase();
   if (url.includes('login') || url.includes('register') || url.includes('forgot')) {
     return next();
@@ -40,10 +37,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-// ==========================================
-// 2. نظام الـ SaaS (تسجيل، دخول، استعادة المرور)
-// ==========================================
-
+// نظام التسجيل والدخول
 app.post(['/register', '/api/register', '/api/api/register'], async (req, res) => {
   const { businessName, clientName, email, phone, password } = req.body;
   try {
@@ -98,20 +92,14 @@ app.post(['/forgot-password', '/api/forgot-password', '/api/api/forgot-password'
     await prisma.user.update({ where: { email: cleanEmail }, data: { password: newPassword } });
     res.json({ message: 'تم إعادة تعيين كلمة المرور بنجاح' });
   } catch (error) {
-    console.error('Forgot Password Error:', error);
     res.status(500).json({ error: 'حدث خطأ أثناء استعادة كلمة المرور' });
   }
 });
 
-// ==========================================
-// 3. مسارات المخزون والمستودعات (مربوطة بقاعدة البيانات)
-// ==========================================
-
+// مسارات المخزون (المحدثة لضمان عدم حدوث خطأ عند الحفظ)
 app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
   try {
-    const products = await prisma.product.findMany({
-      where: { companyId: req.companyId }
-    });
+    const products = await prisma.product.findMany({ where: { companyId: req.companyId } });
     res.json(products);
   } catch (error) {
     console.error('Inventory Fetch Error:', error);
@@ -120,7 +108,7 @@ app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res)
 });
 
 app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
-  const { name, price, stock, sku } = req.body;
+  const { name, price, stock } = req.body;
   try {
     if (!name || price === undefined) {
       return res.status(400).json({ error: 'اسم المنتج والسعر مطلوبان' });
@@ -132,37 +120,24 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
         name,
         price: Number(price),
         stock: Number(stock) || 0,
-        sku: sku || `SKU-${Math.floor(Math.random() * 100000)}`
+        sku: `SKU-${Math.floor(Math.random() * 900000) + 100000}`
       }
     });
 
     res.json({ message: 'تم إضافة المنتج للمخزون بنجاح', product: newProduct });
   } catch (error) {
     console.error('Inventory Create Error:', error);
-    res.status(500).json({ error: 'حدث خطأ أثناء إضافة المنتج' });
+    res.status(500).json({ error: 'حدث خطأ في قاعدة البيانات أثناء حفظ المنتج' });
   }
 });
 
-// ==========================================
-// 4. مسارات الإعدادات العامة
-// ==========================================
-
+// الإعدادات العامة
 app.get(['/settings', '/api/settings', '/api/api/settings'], async (req, res) => {
   try {
     const company = await prisma.company.findUnique({ where: { id: req.companyId } });
     res.json(company);
   } catch (error) {
     res.status(500).json({ error: 'خطأ في جلب الإعدادات' });
-  }
-});
-
-app.put(['/settings', '/api/settings', '/api/api/settings'], async (req, res) => {
-  const { businessName, vatNumber } = req.body;
-  try {
-    await prisma.company.update({ where: { id: req.companyId }, data: { name: businessName, vatNumber } });
-    res.json({ message: 'تم التحديث بنجاح' });
-  } catch (error) {
-    res.status(500).json({ error: 'خطأ في تحديث الإعدادات' });
   }
 });
 

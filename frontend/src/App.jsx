@@ -29,7 +29,7 @@ function App() {
 
   const [clients, setClients] = useState([{id: 1, name: 'شركة أفق للتجارة', phone: '0500000000'}]);
   
-  // بيانات المخزون الحقيقية من الخادم
+  // المخزون الحقيقي المتصل بـ TiDB
   const [inventory, setInventory] = useState([]);
   const [newProdName, setNewProdName] = useState('');
   const [newProdPrice, setNewProdPrice] = useState('');
@@ -65,19 +65,15 @@ function App() {
     }
   }, [user]);
 
-  // جلب المخزون الحقيقي من TiDB عبر الباك إند
   const fetchInventory = async () => {
     try {
       const res = await API.get('/api/inventory');
-      if (res.data) {
-        setInventory(res.data);
-      }
+      if (res.data) setInventory(res.data);
     } catch (err) {
       console.error('فشل جلب المخزون', err);
     }
   };
 
-  // إضافة منتج جديد للمخزون وحفظه في قاعدة البيانات
   const handleAddProduct = async (e) => {
     e.preventDefault();
     if (!newProdName || !newProdPrice) {
@@ -90,13 +86,13 @@ function App() {
         price: newProdPrice,
         stock: newProdStock || 0
       });
-      alert('تم إضافة المنتج بنجاح إلى قاعدة البيانات');
+      alert('تم حفظ المنتج في قاعدة البيانات بنجاح!');
       setNewProdName('');
       setNewProdPrice('');
       setNewProdStock('');
-      fetchInventory(); // تحديث القائمة
+      fetchInventory();
     } catch (err) {
-      alert(err.response?.data?.error || 'فشل إضافة المنتج');
+      alert(err.response?.data?.error || 'حدث خطأ أثناء حفظ المنتج');
     }
   };
 
@@ -221,6 +217,8 @@ function App() {
 
   return (
     <div style={{ fontFamily: 'Tahoma, Cairo, sans-serif', direction: 'rtl', background: theme.bgMain, minHeight: '100vh', color: theme.textDark }}>
+      
+      {/* Navbar العلوي الملكي */}
       <header style={{ background: theme.cardBg, borderBottom: `1px solid ${theme.border}`, padding: '12px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
           <span style={{ fontWeight: '800', color: theme.secondary, fontSize: '18px' }}>محور</span>
@@ -234,13 +232,18 @@ function App() {
         </div>
       </header>
 
-      <div style={{ background: theme.secondary, color: '#fff', padding: '0 30px', display: 'flex', gap: '4px', fontSize: '13px', overflowX: 'auto' }}>
+      {/* شريط الأقسام الفخم */}
+      <div style={{ background: theme.secondary, color: '#fff', padding: '0 30px', display: 'flex', gap: '4px', fontSize: '13px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
         {[
           { id: 'dashboard', label: '📊 لوحة التحكم' },
           { id: 'sales', label: '🛍️ المبيعات' },
+          { id: 'purchases', label: '🛒 المشتريات' },
           { id: 'inventory', label: '📦 المخزون (حي)' },
+          { id: 'manufacturing', label: '🏭 التصنيع' },
           { id: 'hr', label: '👥 الموارد البشرية' },
-          { id: 'reports', label: '📈 التقارير' }
+          { id: 'accounting', label: '💰 المحاسبة' },
+          { id: 'reports', label: '📈 التقارير' },
+          { id: 'settings', label: '⚙️ الإعدادات' }
         ].map(tab => (
           <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ background: activeTab === tab.id ? theme.primary : 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '16px 20px', fontWeight: activeTab === tab.id ? 'bold' : 'normal' }}>
             {tab.label}
@@ -261,7 +264,6 @@ function App() {
 
         {activeTab === 'inventory' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '30px' }}>
-            {/* نموذج إضافة منتج جديد بقاعدة البيانات */}
             <div style={{ background: theme.cardBg, borderRadius: '14px', border: `1px solid ${theme.border}`, padding: '25px' }}>
               <h3 style={{ marginTop: 0, color: theme.secondary }}>➕ إضافة منتج جديد</h3>
               <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -272,7 +274,6 @@ function App() {
               </form>
             </div>
 
-            {/* جدول عرض المخزون الحقيقي من TiDB */}
             <div style={{ background: theme.cardBg, borderRadius: '14px', border: `1px solid ${theme.border}`, padding: '25px' }}>
               <h3 style={{ marginTop: 0, color: theme.secondary }}>📦 مستودع المنتجات (متصل بـ TiDB)</h3>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '14px' }}>
@@ -303,6 +304,14 @@ function App() {
               <div><label>السعر</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}` }} /></div>
             </div>
             <button onClick={handleSaveInvoice} style={{ background: theme.primary, color: '#fff', padding: '12px 25px', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>حفظ الفاتورة</button>
+          </div>
+        )}
+
+        {['purchases', 'manufacturing', 'hr', 'accounting', 'settings'].includes(activeTab) && (
+          <div style={{ background: theme.cardBg, borderRadius: '14px', border: `1px solid ${theme.border}`, padding: '50px', textAlign: 'center' }}>
+            <span style={{ fontSize: '40px' }}>⚙️</span>
+            <h2 style={{ color: theme.secondary }}>وحدة {activeTab.toUpperCase()} جاهزة للربط</h2>
+            <p style={{ color: theme.textMuted }}>هذا القسم مفعل في واجهة النظام وبانتظار تفعيل جدوله السحابي.</p>
           </div>
         )}
 
