@@ -3,7 +3,7 @@ import API from './services/api';
 
 function App() {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('mihwar_user');
+    const saved = localStorage.getItem('hassil_user');
     if (saved) {
       const parsed = JSON.parse(saved);
       if(API.defaults) API.defaults.headers.common['user-id'] = parsed.id;
@@ -12,280 +12,850 @@ function App() {
     return null;
   });
 
-  const [authView, setAuthView] = useState('login'); 
+  const [authView, setAuthView] = useState('login');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authBusinessName, setAuthBusinessName] = useState('');
   const [authClientName, setAuthClientName] = useState('');
   const [authPhone, setAuthPhone] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   
-  const [activeTab, setActiveTab] = useState('dashboard'); 
-  const [activeSalesStep, setActiveSalesStep] = useState(6);
-  const [showQuickAction, setShowQuickAction] = useState(false);
+  const [resetVerified, setResetVerified] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
 
-  const [businessName, setBusinessName] = useState('محور ERP');
-  const [businessVat, setBusinessVat] = useState(() => localStorage.getItem('mihwar_vat') || '300000000000003');
+  // إعدادات اللغة والمظهر
+  const [lang, setLang] = useState('ar');
+  const [themeMode, setThemeMode] = useState('auto');
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-  const [clients, setClients] = useState([{id: 1, name: 'شركة أفق للتجارة', phone: '0500000000'}]);
-  
-  // المخزون الحقيقي المتصل بـ TiDB
-  const [inventory, setInventory] = useState([]);
-  const [newProdName, setNewProdName] = useState('');
-  const [newProdPrice, setNewProdPrice] = useState('');
-  const [newProdStock, setNewProdStock] = useState('');
+  // التنقل بين الأقسام
+  const [activeTab, setActiveTab] = useState('dashboard');
 
+  // إعدادات المنشأة والشعار
+  const [businessName, setBusinessName] = useState('نظام حاصل للفوترة');
+  const [businessCity, setBusinessCity] = useState('المملكة العربية السعودية - جدة');
+  const [businessLogo, setBusinessLogo] = useState('');
+
+  // البيانات
+  const [clients, setClients] = useState([]);
   const [invoices, setInvoices] = useState([]);
-  const [employees, setEmployees] = useState([{id: 1, name: 'أحمد حلمي', role: 'مهندس برمجيات', salary: 12000}]);
+  const [searchTerm, setSearchTerm] = useState('');
   
+  // حقول العميل
+  const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [editingClientId, setEditingClientId] = useState(null);
+
+  // حقول الفاتورة
   const [selectedClientId, setSelectedClientId] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [qty, setQty] = useState(1);
+  const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [taxRate, setTaxRate] = useState(15);
-  const [activeModalDoc, setActiveModalDoc] = useState(null);
+  const [status, setStatus] = useState('Paid');
+  const [paymentMode, setPaymentMode] = useState('no_term');
+  const [dueDate, setDueDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [editingInvoiceId, setEditingInvoiceId] = useState(null);
 
-  const theme = {
-    primary: '#0f766e',
-    primaryHover: '#115e59',
-    secondary: '#0f172a',
-    accent: '#14b8a6',
-    bgMain: '#f8fafc',
-    cardBg: '#ffffff',
-    textDark: '#0f172a',
-    textMuted: '#64748b',
-    border: '#e2e8f0',
-    shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)'
-  };
 
-  useEffect(() => { 
+
+  useEffect(() => {
+    const updateTheme = () => {
+      if (themeMode === 'dark') {
+        setIsDarkMode(true);
+      } else if (themeMode === 'light') {
+        setIsDarkMode(false);
+      } else {
+        const hour = new Date().getHours();
+        setIsDarkMode(hour < 6 || hour >= 18);
+      }
+    };
+    updateTheme();
+    const interval = setInterval(updateTheme, 60000);
+    return () => clearInterval(interval);
+  }, [themeMode]);
+
+  useEffect(() => {
     if (user) {
-      setBusinessName(user.businessName || 'محور ERP');
-      fetchInventory();
+      setBusinessName(user.businessName || 'نظام حاصل للفوترة');
+      fetchData();
+      fetchSettings();
     }
   }, [user]);
 
-  const fetchInventory = async () => {
-    try {
-      const res = await API.get('/api/inventory');
-      if (res.data) setInventory(res.data);
-    } catch (err) {
-      console.error('فشل جلب المخزون', err);
-    }
+  const fetchData = () => {
+    API.get('/clients').then(res => setClients(res.data)).catch(() => {});
+    API.get('/invoices').then(res => setInvoices(res.data)).catch(() => {});
   };
 
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
-    if (!newProdName || !newProdPrice) {
-      alert('الرجاء إدخال اسم المنتج والسعر');
-      return;
-    }
-    try {
-      await API.post('/api/inventory', {
-        name: newProdName,
-        price: newProdPrice,
-        stock: newProdStock || 0
-      });
-      alert('تم حفظ المنتج في قاعدة البيانات بنجاح!');
-      setNewProdName('');
-      setNewProdPrice('');
-      setNewProdStock('');
-      fetchInventory();
-    } catch (err) {
-      alert(err.response?.data?.error || 'حدث خطأ أثناء حفظ المنتج');
-    }
+  const fetchSettings = () => {
+    API.get('/settings').then(res => {
+      if (res.data?.businessName) setBusinessName(res.data.businessName);
+      if (res.data?.logoUrl) setBusinessLogo(res.data.logoUrl);
+    }).catch(() => {});
   };
 
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
+  const extractClientCode = (clientNotes) => {
+    const match = (clientNotes || '').match(/\[(CL-\d+)\]/);
+    return match ? match[1] : '---';
+  };
 
+  const t = {
+    ar: { dashboard: '📊 لوحة التقارير', newInvoice: '🧾 إصدار فاتورة', invoices: '📂 الفواتير', clients: '👥 العملاء', settings: '⚙️ إعدادات المنشأة', totalSales: 'إجمالي المبيعات', zatcaTaxes: 'ضرائب ZATCA (15%)', paidInvs: 'الفواتير المدفوعة', unpaidInvs: 'الفواتير غير المدفوعة', logout: 'تسجيل الخروج', welcome: 'أهلاً بك في لوحة تحكم نظام حاصل 🚀', welcomeSub: 'استخدم القائمة العلوية لإدارة الفواتير والعملاء وتعديل المظهر واللغة بكل مرونة.', invoiceTitle: 'إصدار فاتورة ضريبية جديدة', editInvoiceTitle: 'تعديل الفاتورة', clientSelect: 'اختر العميل:', clientSelectPlaceholder: '-- حدد العميل بالاسم أو الرمز --', itemDesc: 'وصف المنتج أو الخدمة:', itemDescPlaceholder: 'مثال: استشارات برمجية...', baseAmount: 'المبلغ الأساسي (ر.س):', invoiceStatus: 'حالة الفاتورة:', paid: 'مدفوعة', unpaid: 'غير مدفوعة', paymentTerm: 'مدة السداد:', noTerm: 'بدون مدة سداد', withTerm: 'بمدة سداد', dueDateLabel: 'تاريخ السداد النهائي:', subtotalText: 'المبلغ الصافي:', taxText: 'ضريبة القيمة المضافة (15%):', totalText: 'الإجمالي النهائي:', saveInvoice: 'إصدار وحفظ الفاتورة', updateInvoice: 'تحديث الفاتورة', cancel: 'إلغاء', invoicesListTitle: 'قائمة الفواتير الصادرة وسندات القبض', searchPlaceholder: '🔍 ابحث باسم العميل أو برمز العميل...', invNumber: 'رقم الفاتورة', clientNameHeader: 'العميل (ورمزه)', netAmount: 'المبلغ الصافي', taxHeader: 'الضريبة (%15)', totalHeader: 'الإجمالي النهائي', statusHeader: 'الحالة', actionsHeader: 'الإجراءات', pdfBtn: 'فاتورة PDF', receiptBtn: 'سند قبض', waBtn: 'واتساب', editBtn: 'تعديل', deleteBtn: 'حذف', addClientTitle: 'إضافة عميل جديد', editClientTitle: 'تعديل بيانات العميل', clientNameLabel: 'اسم العميل', clientPhoneLabel: 'رقم الجوال', clientEmailLabel: 'البريد الإلكتروني', saveClientBtn: 'إضافة (مع رمز آلي)', updateClientBtn: 'حفظ التعديل', clientsListTitle: 'قائمة العملاء ورموزهم الفريدة', clientSearchPlaceholder: '🔍 ابحث بالاسم أو بررمز العميل (CL-XXXXX)...', clientCodeHeader: 'الرمز الآلي', settingsTitle: 'إعدادات المنشأة والشعار', bizNameLabel: 'اسم المؤسسة / المتجر:', logoLabel: 'شعار المؤسسة (من الجهاز):', saveSettingsBtn: 'حفظ التعديلات والإعدادات', darkMode: 'المظهر الليلي', lightMode: 'المظهر النهاري', autoMode: 'تلقائي (حسب الوقت)' },
+    en: { dashboard: '📊 Dashboard', newInvoice: '🧾 New Invoice', invoices: '📂 Invoices', clients: '👥 Clients', settings: '⚙️ Business Settings', totalSales: 'Total Sales', zatcaTaxes: 'ZATCA Taxes (15%)', paidInvs: 'Paid Invoices', unpaidInvs: 'Unpaid Invoices', logout: 'Logout', welcome: 'Welcome to Hassil Dashboard 🚀', welcomeSub: 'Use the top menu to manage invoices, clients, theme and language flexibly.', invoiceTitle: 'Issue New Tax Invoice', editInvoiceTitle: 'Edit Invoice', clientSelect: 'Select Client:', clientSelectPlaceholder: '-- Select client by name or code --', itemDesc: 'Product or Service Description:', itemDescPlaceholder: 'Example: Software Consulting...', baseAmount: 'Base Amount (SAR):', invoiceStatus: 'Invoice Status:', paid: 'Paid', unpaid: 'Unpaid', paymentTerm: 'Payment Term:', noTerm: 'No Term', withTerm: 'With Term', dueDateLabel: 'Due Date:', subtotalText: 'Subtotal:', taxText: 'VAT (15%):', totalText: 'Grand Total:', saveInvoice: 'Issue & Save Invoice', updateInvoice: 'Update Invoice', cancel: 'Cancel', invoicesListTitle: 'Issued Invoices & Receipt Vouchers', searchPlaceholder: '🔍 Search by client name or code...', invNumber: 'Invoice #', clientNameHeader: 'Client (Code)', netAmount: 'Subtotal', taxHeader: 'Tax (15%)', totalHeader: 'Grand Total', statusHeader: 'Status', actionsHeader: 'Actions', pdfBtn: 'PDF Invoice', receiptBtn: 'Receipt', waBtn: 'WhatsApp', editBtn: 'Edit', deleteBtn: 'Delete', addClientTitle: 'Add New Client', editClientTitle: 'Edit Client Info', clientNameLabel: 'Client Name', clientPhoneLabel: 'Phone Number', clientEmailLabel: 'Email Address', saveClientBtn: 'Add (Auto Code)', updateClientBtn: 'Save Changes', clientsListTitle: 'Clients List & Unique Codes', clientSearchPlaceholder: '🔍 Search by name or client code (CL-XXXXX)...', clientCodeHeader: 'Auto Code', settingsTitle: 'Business & Logo Settings', bizNameLabel: 'Business / Store Name:', logoLabel: 'Business Logo (from device):', saveSettingsBtn: 'Save Changes & Settings', darkMode: 'Dark Mode', lightMode: 'Light Mode', autoMode: 'Auto (Time-based)' }
+  };
+
+  const txt = t[lang];
+
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
     if (authView === 'login') {
-      try {
-        const res = await API.post('/api/login', { email: authEmail, password: authPassword });
-        const loggedInUser = res.data.user;
-        setUser(loggedInUser);
-        localStorage.setItem('mihwar_user', JSON.stringify(loggedInUser));
-        API.defaults.headers.common['user-id'] = loggedInUser.id;
-      } catch (err) { alert(err.response?.data?.error || 'فشل تسجيل الدخول'); }
+      API.post('/login', { email: authEmail, password: authPassword })
+        .then(res => {
+          const loggedInUser = res.data.user;
+          setUser(loggedInUser);
+          localStorage.setItem('hassil_user', JSON.stringify(loggedInUser));
+          API.defaults.headers.common['user-id'] = loggedInUser.id;
+        })
+        .catch(err => alert(err.response?.data?.error || 'Login failed'));
     } else if (authView === 'register') {
-      try {
-        const res = await API.post('/api/register', { businessName: authBusinessName, clientName: authClientName, email: authEmail, phone: authPhone, password: authPassword });
-        const newUser = res.data.user;
-        setUser(newUser);
-        localStorage.setItem('mihwar_user', JSON.stringify(newUser));
-        API.defaults.headers.common['user-id'] = newUser.id;
-        alert('تم إنشاء مساحة العمل بنجاح!');
-      } catch (err) { alert(err.response?.data?.error || 'فشل إنشاء الحساب'); }
+      API.post('/register', { businessName: authBusinessName, clientName: authClientName, email: authEmail, phone: authPhone, password: authPassword })
+        .then(res => {
+          const newUser = res.data.user;
+          setUser(newUser);
+          localStorage.setItem('hassil_user', JSON.stringify(newUser));
+          API.defaults.headers.common['user-id'] = newUser.id;
+          alert('Account created successfully!');
+        })
+        .catch(err => alert(err.response?.data?.error || 'Registration error'));
     } else if (authView === 'forgot') {
-      try {
-        const res = await API.post('/api/forgot-password', { email: authEmail, newPassword: authPassword });
-        alert(res.data.message);
-        setAuthView('login'); 
-        setAuthPassword(''); 
-      } catch (err) { alert(err.response?.data?.error || 'فشل استعادة كلمة المرور'); }
+      if (!resetVerified) {
+        API.post('/forgot-password', { email: authEmail, phone: authPhone })
+          .then(res => { alert(res.data.message); setResetVerified(true); })
+          .catch(err => alert(err.response?.data?.error || 'Data mismatch'));
+      } else {
+        API.post('/forgot-password', { email: authEmail, phone: authPhone, newPassword })
+          .then(res => { alert(res.data.message); setAuthView('login'); setResetVerified(false); setNewPassword(''); })
+          .catch(err => alert(err.response?.data?.error || 'Update failed'));
+      }
     }
-    setIsLoading(false);
   };
 
-  const handleLogout = () => { setUser(null); localStorage.removeItem('mihwar_user'); delete API.defaults.headers.common['user-id']; setAuthView('login'); };
-
-  const handleProductSelect = (e) => {
-    const prodId = e.target.value;
-    setSelectedProductId(prodId);
-    const prod = inventory.find(p => p.id == prodId);
-    if(prod) setAmount(prod.price);
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('hassil_user');
+    delete API.defaults.headers.common['user-id'];
+    setClients([]);
+    setInvoices([]);
+    setAuthView('login');
   };
 
-  const handleSaveInvoice = () => {
-    if(!selectedClientId || !selectedProductId) { alert('الرجاء اختيار العميل والمنتج'); return; }
-    const prod = inventory.find(p => p.id == selectedProductId);
-    const client = clients.find(c => c.id == selectedClientId);
-    const subtotal = Number(amount) * qty;
-    const taxAmount = subtotal * (taxRate / 100);
-    const totalAmount = subtotal + taxAmount;
-    const newInvoice = { id: Date.now(), invoiceNumber: `INV-${Math.floor(Math.random()*1000000)}`, client: client, items: [{ description: prod.name, quantity: qty, unitPrice: amount }], subtotal: subtotal.toFixed(2), taxAmount: taxAmount.toFixed(2), totalAmount: totalAmount.toFixed(2), createdAt: new Date() };
-    setInvoices([newInvoice, ...invoices]);
-    alert('تم إصدار الفاتورة بنجاح');
-    setActiveTab('reports');
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 300;
+          const MAX_HEIGHT = 150;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+          } else {
+            if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          setBusinessLogo(compressedBase64);
+          API.put('/settings', { businessName, logoUrl: compressedBase64 }).catch(() => {});
+        };
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const exportToCSV = () => {
-    let headers = ['رقم المستند', 'العميل', 'المبلغ', 'التاريخ'];
-    let rows = invoices.map(inv => [inv.invoiceNumber, inv.client?.name, inv.totalAmount, new Date(inv.createdAt).toLocaleDateString('ar-SA')]);
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-    const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent)); link.setAttribute("download", `تقرير_محور.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  const handleUpdateSettings = (e) => {
+    e.preventDefault();
+    API.put('/settings', { businessName, logoUrl: businessLogo })
+      .then(() => alert('Settings updated successfully!'))
+      .catch(err => alert('Error: ' + err.message));
+  };
+
+  const handleSaveClient = (e) => {
+    e.preventDefault();
+    if (editingClientId) {
+      API.put(`/clients/${editingClientId}`, { name: clientName, phone: clientPhone, email: clientEmail })
+        .then(() => { alert('Client updated'); setEditingClientId(null); setClientName(''); setClientPhone(''); setClientEmail(''); fetchData(); })
+        .catch(err => alert(err.message));
+    } else {
+      API.post('/clients', { name: clientName, phone: clientPhone, email: clientEmail })
+        .then(() => { alert('Client added successfully'); setClientName(''); setClientPhone(''); setClientEmail(''); fetchData(); })
+        .catch(err => alert(err.message));
+    }
+  };
+
+  const handleSaveInvoice = (e) => {
+    e.preventDefault();
+    let finalNotes = `الحالة: ${status === 'Paid' ? 'مدفوعة' : 'غير مدفوعة'}`;
+    if (paymentMode === 'with_term') {
+      finalNotes += ` | مدة السداد: يجب الدفع قبل تاريخ ${dueDate} كحد أقصى`;
+    } else {
+      finalNotes += ` | مدة السداد: فوري`;
+    }
+    if (notes) finalNotes += ` | ملاحظات: ${notes}`;
+
+    if (editingInvoiceId) {
+      API.put(`/invoices/${editingInvoiceId}`, { amount: Number(amount), description, notes: finalNotes })
+        .then(() => { alert('Invoice updated'); cancelEditInvoice(); fetchData(); setActiveTab('invoices'); })
+        .catch(err => alert(err.message));
+    } else {
+      if (!selectedClientId) { alert('Select a client'); return; }
+      API.post('/invoices', { clientId: selectedClientId, items: [{ description: description || 'General Service', quantity: 1, unitPrice: Number(amount) }], notes: finalNotes })
+        .then(() => { alert('Invoice issued successfully'); cancelEditInvoice(); fetchData(); setActiveTab('invoices'); })
+        .catch(err => alert(err.message));
+    }
+  };
+
+  const startEditClient = (client) => {
+    setEditingClientId(client.id); setClientName(client.name); setClientPhone(client.phone); setClientEmail(client.email || '');
+    setActiveTab('clients');
+  };
+
+  const startEditInvoice = (inv) => {
+    setEditingInvoiceId(inv.id); setDescription(inv.items?.[0]?.description || ''); setAmount(inv.subtotal);
+    setStatus(inv.notes?.includes('مدفوعة') ? 'Paid' : 'Unpaid');
+    const dateMatch = inv.notes?.match(/تاريخ\s+([0-9\/\-]+)/);
+    if (dateMatch) { setPaymentMode('with_term'); setDueDate(dateMatch[1]); } else { setPaymentMode('no_term'); }
+    setActiveTab('new_invoice');
+  };
+
+  const cancelEditInvoice = () => {
+    setEditingInvoiceId(null); setDescription(''); setAmount(''); setPaymentMode('no_term'); setDueDate(''); setStatus('Paid'); setNotes('');
+  };
+
+  const handleDeleteClient = (client) => {
+    if (window.confirm(`Delete client (${client.name})?`)) {
+      API.delete(`/clients/${client.id}`).then(() => { alert('Deleted'); fetchData(); }).catch(() => alert('Cannot delete'));
+    }
+  };
+
+  const handleDeleteInvoice = (inv) => {
+    if (window.confirm('Delete this invoice?')) {
+      API.delete(`/invoices/${inv.id}`).then(() => { alert('Deleted'); fetchData(); }).catch(() => alert('Error'));
+    }
+  };
+
+  const handleWhatsAppShare = (inv) => {
+    let phone = inv.client?.phone || '';
+    phone = phone.replace(/\D/g, ''); 
+    if (phone.startsWith('05')) { 
+      phone = '966' + phone.substring(1); 
+    } else if (phone.startsWith('5') && phone.length === 9) { 
+      phone = '966' + phone; 
+    }
+    const message = `أهلاً بك ${inv.client?.name || ''}\nرقم الفاتورة: ${inv.invoiceNumber}\nالإجمالي النهائي: ${inv.totalAmount} ر.س\nشكراً لتعاملك معنا في ${businessName}.`;
+    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  // دالة مشتركة: تبني HTML كامل وتحقنه داخل iframe مخفي ثم تطبع منه وتحذفه
+  const printViaIframe = (htmlContent) => {
+    // إزالة أي iframe طباعة سابق لم يُحذف
+    const old = document.getElementById('hassil-print-frame');
+    if (old) old.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'hassil-print-frame';
+    iframe.setAttribute('aria-hidden', 'true');
+    Object.assign(iframe.style, {
+      position: 'fixed',
+      top: '-10000px',
+      left: '-10000px',
+      width: '1px',
+      height: '1px',
+      opacity: '0',
+      border: 'none',
+      pointerEvents: 'none',
+    });
+    document.body.appendChild(iframe);
+
+    let printed = false;
+    const doPrint = () => {
+      if (printed) return;
+      printed = true;
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) { /* في حال رفض المتصفح */ }
+      // حذف الـ iframe بعد انتهاء نافذة الطباعة
+      setTimeout(() => {
+        if (document.body.contains(iframe)) iframe.remove();
+      }, 1500);
+    };
+
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    // الطريقة الأساسية: حدث load بعد اكتمال كتابة المستند
+    iframe.contentWindow.onload = doPrint;
+    // Fallback: بعض المتصفحات (خاصة iOS Safari) لا تطلق onload بعد doc.write
+    setTimeout(doPrint, 800);
+  };
+
+  // طباعة الفاتورة الضريبية عبر iframe مخفي ديناميكي
+  const handlePrintOrPDF = (inv) => {
+    const logoHtml = businessLogo
+      ? `<img src="${businessLogo}" alt="Logo" style="max-height:60px;object-fit:contain;display:block;margin-bottom:6px;" />`
+      : '';
+    const isPaid = inv.notes?.includes('مدفوعة');
+    const statusColor = isPaid ? '#16a34a' : '#dc2626';
+    const statusText = isPaid ? 'مدفوعة' : 'غير مدفوعة';
+    const today = new Date().toLocaleDateString('ar-SA');
+
+    const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>فاتورة ضريبية - ${inv.invoiceNumber}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Tahoma, sans-serif;
+      direction: rtl;
+      background: #fff;
+      color: #333;
+      padding: 30px;
+    }
+    .wrapper {
+      max-width: 800px;
+      margin: auto;
+      padding: 30px;
+      border: 2px solid #1e3a8a;
+      border-radius: 12px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    .header h2 { color: #1e3a8a; margin: 0; }
+    .header p { margin: 5px 0 0; font-size: 14px; color: #666; }
+    .header-left { text-align: left; }
+    .header-left h3 { color: #1e3a8a; margin: 0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th {
+      border: 1px solid #cbd5e1;
+      padding: 10px;
+      background: #1e3a8a;
+      color: #fff;
+      text-align: right;
+    }
+    td { border: 1px solid #cbd5e1; padding: 10px; }
+    .client-box {
+      margin-bottom: 15px;
+      background: #f1f5f9;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .client-box p { margin: 2px 0; }
+    .client-box p:first-child { font-weight: bold; color: #1e3a8a; margin-bottom: 5px; }
+    .totals {
+      background: #f8fafc;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+    }
+    .totals p { margin: 6px 0; }
+    .totals .tax { color: #dc2626; }
+    .totals .grand { color: #16a34a; font-size: 18px; }
+    @media print {
+      body { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <div>
+        <h2>فاتورة ضريبية</h2>
+        <p>رقم الفاتورة: <strong>${inv.invoiceNumber}</strong></p>
+      </div>
+      <div class="header-left">
+        ${logoHtml}
+        <h3>${businessName}</h3>
+        <p style="font-size:13px;color:#666;">${businessCity}</p>
+      </div>
+    </div>
+
+    <table>
+      <tr>
+        <th>تاريخ الإصدار</th>
+        <th>الحالة</th>
+      </tr>
+      <tr>
+        <td>${today}</td>
+        <td style="font-weight:bold;color:${statusColor};">${statusText}</td>
+      </tr>
+    </table>
+
+    <div class="client-box">
+      <p>بيانات العميل:</p>
+      <p>اسم العميل: <strong>${inv.client?.name || '---'}</strong></p>
+      <p>رقم الجوال: <strong>${inv.client?.phone || '---'}</strong></p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>وصف المنتج / الخدمة</th>
+          <th>الكمية</th>
+          <th>السعر الفردي</th>
+          <th>المجموع</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${inv.items?.[0]?.description || 'خدمة عامة'}</td>
+          <td>1</td>
+          <td>${inv.subtotal} ر.س</td>
+          <td>${inv.subtotal} ر.س</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <p>المبلغ الصافي: <strong>${inv.subtotal} ر.س</strong></p>
+      <p class="tax">ضريبة القيمة المضافة (15%): <strong>${inv.taxAmount} ر.س</strong></p>
+      <p class="grand">الإجمالي النهائي: <strong>${inv.totalAmount} ر.س</strong></p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    printViaIframe(html);
+  };
+
+  // طباعة سند القبض عبر iframe مخفي ديناميكي
+  const handlePrintReceipt = (inv) => {
+    const logoHtml = businessLogo
+      ? `<img src="${businessLogo}" alt="Logo" style="max-height:60px;object-fit:contain;display:block;margin-bottom:6px;" />`
+      : '';
+    const today = new Date().toLocaleDateString('ar-SA');
+
+    const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>سند قبض - ${inv.invoiceNumber}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Tahoma, sans-serif;
+      direction: rtl;
+      background: #fff;
+      color: #333;
+      padding: 30px;
+    }
+    .wrapper {
+      max-width: 700px;
+      margin: auto;
+      padding: 35px;
+      border: 3px solid #16a34a;
+      border-radius: 16px;
+      background: #f0fdf4;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #16a34a;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    .header h2 { color: #16a34a; margin: 0; }
+    .header p { margin: 5px 0 0; font-size: 13px; color: #555; }
+    .header-left { text-align: left; }
+    .header-left h3 { color: #16a34a; margin: 0; }
+    .body-text { font-size: 16px; line-height: 1.8; }
+    .body-text p { margin: 4px 0; }
+    .amount { color: #16a34a; font-size: 18px; }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px dashed #16a34a;
+      font-weight: bold;
+    }
+    @media print {
+      body { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <div>
+        <h2>سند قبض رسمي</h2>
+        <p>رقم الفاتورة المرتبطة: ${inv.invoiceNumber}</p>
+      </div>
+      <div class="header-left">
+        ${logoHtml}
+        <h3>${businessName}</h3>
+        <p style="font-size:12px;color:#555;">${businessCity}</p>
+      </div>
+    </div>
+
+    <div class="body-text">
+      <p>استلمنا من المكرم/ة: <strong>${inv.client?.name || '---'}</strong></p>
+      <p>مبلغ وقدره: <strong class="amount">${inv.totalAmount} ر.س</strong> (شامل ضريبة القيمة المضافة 15%)</p>
+      <p>وذلك مقابل: <strong>سداد قيمة الفاتورة الضريبية رقم (${inv.invoiceNumber})</strong></p>
+      <p>تاريخ الاستلام / الإصدار: <strong>${today}</strong></p>
+    </div>
+
+    <div class="footer">
+      <p>المحاسب / المسؤول: ........................</p>
+      <p>ختم وتوقيع المنشأة: ........................</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    printViaIframe(html);
   };
 
   if (!user) {
     return (
-      <div style={{ display: 'flex', height: '100vh', fontFamily: 'Tahoma, Cairo, sans-serif', direction: 'rtl', background: '#f8fafc' }}>
-        <div style={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '40px', background: '#ffffff', boxShadow: '10px 0 25px rgba(0,0,0,0.02)', zIndex: 10 }}>
-          <div style={{ width: '100%', maxWidth: '420px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
-              <div style={{ width: '38px', height: '38px', background: theme.primary, borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>ılı</div>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: theme.secondary }}>محور ERP</span>
+      <div style={{ fontFamily: 'Tahoma, sans-serif', direction: lang === 'ar' ? 'rtl' : 'ltr', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d1b2a', boxSizing: 'border-box' }}>
+        <style>
+          {`
+            @keyframes slideInUp {
+              0% { opacity: 0; transform: translateY(40px); }
+              100% { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes floatAnimation {
+              0% { transform: translateY(0px); }
+              50% { transform: translateY(-15px); }
+              100% { transform: translateY(0px); }
+            }
+            .animate-container {
+              animation: slideInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            }
+            .animate-character {
+              animation: floatAnimation 3.5s ease-in-out infinite;
+            }
+          `}
+        </style>
+
+        <div className="animate-container" style={{ display: 'flex', width: '900px', maxWidth: '95%', background: '#1b263b', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', background: 'radial-gradient(circle, #1b263b 0%, #0d1b2a 100%)' }}>
+            <div className="animate-character" style={{ width: '220px', height: '300px', backgroundColor: '#000000', borderRadius: '16px', position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.6)', border: '2px solid #415a77', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ position: 'absolute', top: '90px', width: '50px', height: '70px', backgroundColor: '#ffffff', clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)' }}></div>
+              <div style={{ position: 'absolute', top: '100px', width: '10px', height: '50px', backgroundColor: '#000000' }}></div>
             </div>
-            <h1 style={{ margin: '0 0 8px 0', color: theme.secondary, fontSize: '28px', fontWeight: '800' }}>
-              {authView === 'forgot' ? 'استعادة كلمة المرور' : (authView === 'login' ? 'مرحباً بك مجدداً' : 'انضم إلى محور اليوم')}
-            </h1>
-            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginTop: '20px' }}>
+            <p className="animate-character" style={{ color: '#e0e1dd', marginTop: '25px', fontSize: '17px', fontWeight: 'bold' }}>نظام حاصل للفوترة</p>
+          </div>
+
+          <div style={{ flex: 1.2, background: '#ffffff', padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <h2 style={{ textAlign: 'center', color: '#0d1b2a', margin: '0 0 5px', fontSize: '26px' }}>أهلاً بك</h2>
+            <p style={{ textAlign: 'center', color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>سجل الدخول لإدارة فواتيرك وعملائك</p>
+
+            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {authView === 'register' && (
                 <>
-                  <div><label style={{ fontSize: '13px', fontWeight: '600' }}>الاسم التجاري للمنشأة</label><input type="text" value={authBusinessName} onChange={(e)=>setAuthBusinessName(e.target.value)} required style={{ width: '100%', padding: '14px', borderRadius: '10px', border: `1px solid ${theme.border}`, background: '#f8fafc', boxSizing: 'border-box' }} /></div>
-                  <div><label style={{ fontSize: '13px', fontWeight: '600' }}>اسم المدير المسؤول</label><input type="text" value={authClientName} onChange={(e)=>setAuthClientName(e.target.value)} required style={{ width: '100%', padding: '14px', borderRadius: '10px', border: `1px solid ${theme.border}`, background: '#f8fafc', boxSizing: 'border-box' }} /></div>
+                  <input type="text" value={authBusinessName} onChange={e => setAuthBusinessName(e.target.value)} required placeholder="اسم المنشأة" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box' }} />
+                  <input type="text" value={authClientName} onChange={e => setAuthClientName(e.target.value)} required placeholder="اسم المالك" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box' }} />
                 </>
               )}
-              <div><label style={{ fontSize: '13px', fontWeight: '600' }}>البريد الإلكتروني</label><input type="email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} required style={{ width: '100%', padding: '14px', borderRadius: '10px', border: `1px solid ${theme.border}`, background: '#f8fafc', direction: 'ltr', textAlign: 'right', boxSizing: 'border-box' }} /></div>
-              <div><label style={{ fontSize: '13px', fontWeight: '600' }}>{authView === 'forgot' ? 'كلمة المرور الجديدة' : 'كلمة المرور'}</label><input type="password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} required style={{ width: '100%', padding: '14px', borderRadius: '10px', border: `1px solid ${theme.border}`, background: '#f8fafc', direction: 'ltr', textAlign: 'right', boxSizing: 'border-box' }} /></div>
-              {authView === 'login' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                  <label><input type="checkbox" defaultChecked /> تذكرني</label>
-                  <span onClick={() => setAuthView('forgot')} style={{ color: theme.primary, cursor: 'pointer', fontWeight: '700' }}>نسيت كلمة المرور؟</span>
-                </div>
+              <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required placeholder="البريد الإلكتروني" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
+              
+              {(authView === 'register' || authView === 'forgot') && (
+                <input type="text" value={authPhone} onChange={e => setAuthPhone(e.target.value)} required placeholder="رقم الجوال (05XXXXXXXX)" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
               )}
-              <button type="submit" disabled={isLoading} style={{ background: theme.primary, color: '#fff', padding: '15px', borderRadius: '10px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>
-                {isLoading ? 'جاري المعالجة...' : (authView === 'forgot' ? 'تحديث كلمة المرور' : (authView === 'login' ? 'تسجيل الدخول' : 'إنشاء مساحة العمل'))}
+              
+              {(authView === 'login' || authView === 'register') && (
+                <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required placeholder="كلمة المرور" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
+              )}
+              
+              {authView === 'forgot' && resetVerified && (
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder="كلمة المرور الجديدة" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #16a34a', background: '#f8fafc', color: '#000', boxSizing: 'border-box', direction: 'ltr', textAlign: 'left' }} />
+              )}
+              
+              <button type="submit" style={{ background: '#0d1b2a', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
+                {authView === 'login' && 'تسجيل الدخول'}
+                {authView === 'register' && 'إنشاء حساب جديد'}
+                {authView === 'forgot' && (resetVerified ? 'حفظ كلمة المرور الجديدة' : 'تحقق وإرسال طلب الإستعادة')}
               </button>
-              <div style={{ textAlign: 'center', fontSize: '14px' }}>
-                {authView === 'forgot' ? (
-                  <span onClick={() => setAuthView('login')} style={{ color: theme.primary, fontWeight: '700', cursor: 'pointer' }}>العودة لتسجيل الدخول</span>
-                ) : (
-                  <span onClick={() => setAuthView(authView === 'login' ? 'register' : 'login')} style={{ color: theme.primary, fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}>
-                    {authView === 'login' ? 'سجل شركتك الآن' : 'سجل دخولك'}
-                  </span>
-                )}
-              </div>
             </form>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', fontSize: '13px' }}>
+              {authView === 'login' ? (
+                <>
+                  <button type="button" onClick={() => { setAuthView('register'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 'bold' }}>إنشاء حساب جديد</button>
+                  <button type="button" onClick={() => { setAuthView('forgot'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>هل نسيت كلمة المرور؟</button>
+                </>
+              ) : (
+                <button type="button" onClick={() => { setAuthView('login'); setResetVerified(false); }} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 'bold', margin: 'auto' }}>العودة لتسجيل الدخول</button>
+              )}
+            </div>
           </div>
-        </div>
-        <div style={{ flex: '1 1 50%', background: '#0f172a', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '80px' }}>
-          <h1 style={{ fontSize: '48px', margin: '0 0 20px 0', fontWeight: '800' }}>إدارة متكاملة<br/>برؤية مستقبلية.</h1>
-          <p style={{ fontSize: '16px', opacity: 0.75 }}>نظام سحابي متطور لربط كافة أقسام منشأتك.</p>
         </div>
       </div>
     );
   }
 
-  const stats = { 
-    sales: invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0) + 575, 
-    purchases: 1883.70, 
-    salaries: 13037.50, 
-    inventoryVal: inventory.reduce((sum, i) => sum + (Number(i.price) * Number(i.stock)), 0) 
-  };
+  const totalSales = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
+  const totalTaxes = invoices.reduce((sum, inv) => sum + Number(inv.taxAmount || 0), 0);
+  const paidInvoicesCount = invoices.filter(inv => inv.notes?.includes('مدفوعة') || inv.notes?.includes('Paid')).length;
+  const unpaidInvoicesCount = invoices.length - paidInvoicesCount;
+
+  const filteredInvoices = invoices.filter(inv => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+    const nameMatch = (inv.client?.name || '').toLowerCase().includes(query);
+    const codeMatch = (inv.client?.notes || '').toLowerCase().includes(query);
+    return nameMatch || codeMatch;
+  });
+
+  const filteredClients = clients.filter(c => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+    const nameMatch = (c.name || '').toLowerCase().includes(query);
+    const codeMatch = (c.notes || '').toLowerCase().includes(query);
+    return nameMatch || codeMatch;
+  });
+
+  const bgMain = isDarkMode ? '#0f172a' : '#f8fafc';
+  const cardBg = isDarkMode ? '#1e293b' : '#fff';
+  const textColor = isDarkMode ? '#f8fafc' : '#0f172a';
+  const subTextColor = isDarkMode ? '#94a3b8' : '#64748b';
+  const borderColor = isDarkMode ? '#334155' : '#e2e8f0';
 
   return (
-    <div style={{ fontFamily: 'Tahoma, Cairo, sans-serif', direction: 'rtl', background: theme.bgMain, minHeight: '100vh', color: theme.textDark }}>
+    <div style={{ fontFamily: 'Tahoma, sans-serif', direction: lang === 'ar' ? 'rtl' : 'ltr', minHeight: '100vh', boxSizing: 'border-box' }}>
       
-      {/* Navbar العلوي الملكي */}
-      <header style={{ background: theme.cardBg, borderBottom: `1px solid ${theme.border}`, padding: '12px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
-          <span style={{ fontWeight: '800', color: theme.secondary, fontSize: '18px' }}>محور</span>
-          <span style={{ fontSize: '13px', background: '#f1f5f9', padding: '6px 12px', borderRadius: '6px' }}>🏢 مساحة العمل: <strong>{businessName}</strong></span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', cursor: 'pointer' }} onClick={handleLogout}>
-          <div style={{ lineHeight: '1.2', textAlign: 'left' }}>
-            <p style={{ margin: 0, fontSize: '13px', fontWeight: '800' }}>{user.name}</p>
-            <p style={{ margin: 0, fontSize: '11px', color: '#ef4444' }}>تسجيل خروج ↪</p>
+
+
+      {/* الواجهة الطبيعية للتطبيق */}
+      <div style={{ padding: '30px', background: bgMain, color: textColor, minHeight: '100vh', transition: 'background 0.3s' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', background: cardBg, padding: '15px 30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', flexWrap: 'wrap', gap: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {businessLogo && <img src={businessLogo} alt="Logo" style={{ maxHeight: '45px', objectFit: 'contain' }} />}
+            <div>
+              <h1 style={{ color: textColor, margin: 0, fontSize: '22px' }}>{businessName}</h1>
+              <p style={{ color: subTextColor, margin: '2px 0 0 0', fontSize: '13px' }}>{user.email}</p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <select value={lang} onChange={e => setLang(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor, cursor: 'pointer', fontSize: '13px' }}>
+              <option value="ar">🇸🇦 العربية</option>
+              <option value="en">🇬🇧 English</option>
+            </select>
+
+            <select value={themeMode} onChange={e => setThemeMode(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor, cursor: 'pointer', fontSize: '13px' }}>
+              <option value="auto">🌗 {txt.autoMode}</option>
+              <option value="light">☀️ {txt.lightMode}</option>
+              <option value="dark">🌙 {txt.darkMode}</option>
+            </select>
+
+            <button onClick={handleLogout} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>{txt.logout}</button>
           </div>
         </div>
-      </header>
 
-      {/* شريط الأقسام الفخم */}
-      <div style={{ background: theme.secondary, color: '#fff', padding: '0 30px', display: 'flex', gap: '4px', fontSize: '13px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-        {[
-          { id: 'dashboard', label: '📊 لوحة التحكم' },
-          { id: 'sales', label: '🛍️ المبيعات' },
-          { id: 'purchases', label: '🛒 المشتريات' },
-          { id: 'inventory', label: '📦 المخزون (حي)' },
-          { id: 'manufacturing', label: '🏭 التصنيع' },
-          { id: 'hr', label: '👥 الموارد البشرية' },
-          { id: 'accounting', label: '💰 المحاسبة' },
-          { id: 'reports', label: '📈 التقارير' },
-          { id: 'settings', label: '⚙️ الإعدادات' }
-        ].map(tab => (
-          <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ background: activeTab === tab.id ? theme.primary : 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '16px 20px', fontWeight: activeTab === tab.id ? 'bold' : 'normal' }}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', background: cardBg, padding: '10px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', flexWrap: 'wrap' }}>
+          <button onClick={() => setActiveTab('dashboard')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'dashboard' ? '#2563eb' : (isDarkMode ? '#0f172a' : '#f1f5f9'), color: activeTab === 'dashboard' ? '#fff' : subTextColor }}>{txt.dashboard}</button>
+          <button onClick={() => setActiveTab('new_invoice')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'new_invoice' ? '#2563eb' : (isDarkMode ? '#0f172a' : '#f1f5f9'), color: activeTab === 'new_invoice' ? '#fff' : subTextColor }}>{txt.newInvoice}</button>
+          <button onClick={() => setActiveTab('invoices')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'invoices' ? '#2563eb' : (isDarkMode ? '#0f172a' : '#f1f5f9'), color: activeTab === 'invoices' ? '#fff' : subTextColor }}>{txt.invoices}</button>
+          <button onClick={() => setActiveTab('clients')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'clients' ? '#2563eb' : (isDarkMode ? '#0f172a' : '#f1f5f9'), color: activeTab === 'clients' ? '#fff' : subTextColor }}>{txt.clients}</button>
+          <button onClick={() => setActiveTab('settings')} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: activeTab === 'settings' ? '#2563eb' : (isDarkMode ? '#0f172a' : '#f1f5f9'), color: activeTab === 'settings' ? '#fff' : subTextColor }}>{txt.settings}</button>
+        </div>
 
-      <main style={{ padding: '35px', maxWidth: '1400px', margin: 'auto' }}>
         {activeTab === 'dashboard' && (
           <div>
-            <h1 style={{ margin: '0 0 20px 0', fontSize: '26px', color: theme.secondary }}>مرحباً بك، {user.name} 👋</h1>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '14px', border: `1px solid ${theme.border}` }}><p>إجمالي المبيعات</p><h2>{stats.sales.toLocaleString()} ر.س</h2></div>
-              <div style={{ background: theme.cardBg, padding: '25px', borderRadius: '14px', border: `1px solid ${theme.border}` }}><p>قيمة المخزون (من قاعدة البيانات)</p><h2 style={{ color: '#0d9488' }}>{stats.inventoryVal.toLocaleString()} ر.س</h2></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+              <div style={{ background: '#2563eb', color: '#fff', padding: '25px', borderRadius: '12px' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '14px', opacity: 0.9 }}>{txt.totalSales}</p>
+                <h2 style={{ margin: 0, fontSize: '26px' }}>{totalSales.toFixed(2)} SAR</h2>
+              </div>
+              <div style={{ background: '#0284c7', color: '#fff', padding: '25px', borderRadius: '12px' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '14px', opacity: 0.9 }}>{txt.zatcaTaxes}</p>
+                <h2 style={{ margin: 0, fontSize: '26px' }}>{totalTaxes.toFixed(2)} SAR</h2>
+              </div>
+              <div style={{ background: '#16a34a', color: '#fff', padding: '25px', borderRadius: '12px' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '14px', opacity: 0.9 }}>{txt.paidInvs}</p>
+                <h2 style={{ margin: 0, fontSize: '26px' }}>{paidInvoicesCount}</h2>
+              </div>
+              <div style={{ background: '#dc2626', color: '#fff', padding: '25px', borderRadius: '12px' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '14px', opacity: 0.9 }}>{txt.unpaidInvs}</p>
+                <h2 style={{ margin: 0, fontSize: '26px' }}>{unpaidInvoicesCount}</h2>
+              </div>
+            </div>
+            <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+              <h2 style={{ color: textColor, margin: '0 0 10px' }}>{txt.welcome}</h2>
+              <p style={{ color: subTextColor, fontSize: '16px', margin: 0 }}>{txt.welcomeSub}</p>
             </div>
           </div>
         )}
 
-        {activeTab === 'inventory' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '30px' }}>
-            <div style={{ background: theme.cardBg, borderRadius: '14px', border: `1px solid ${theme.border}`, padding: '25px' }}>
-              <h3 style={{ marginTop: 0, color: theme.secondary }}>➕ إضافة منتج جديد</h3>
-              <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div><label style={{ fontSize: '12px', fontWeight: 'bold' }}>اسم المنتج</label><input type="text" value={newProdName} onChange={e=>setNewProdName(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} /></div>
-                <div><label style={{ fontSize: '12px', fontWeight: 'bold' }}>سعر البيع (ر.س)</label><input type="number" value={newProdPrice} onChange={e=>setNewProdPrice(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} /></div>
-                <div><label style={{ fontSize: '12px', fontWeight: 'bold' }}>الكمية الأولية بالمخزون</label><input type="number" value={newProdStock} onChange={e=>setNewProdStock(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} /></div>
-                <button type="submit" style={{ background: theme.primary, color: '#fff', padding: '12px', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ في قاعدة البيانات</button>
+        {activeTab === 'new_invoice' && (
+          <div style={{ background: cardBg, padding: '35px', borderRadius: '12px', maxWidth: '650px', margin: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ marginTop: 0, color: textColor, marginBottom: '20px' }}>{editingInvoiceId ? txt.editInvoiceTitle : txt.invoiceTitle}</h2>
+            <form onSubmit={handleSaveInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {!editingInvoiceId && (
+                <div>
+                  <label style={{ fontSize: '14px', color: subTextColor, display: 'block', marginBottom: '6px' }}>{txt.clientSelect}</label>
+                  <select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }}>
+                    <option value="">{txt.clientSelectPlaceholder}</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name} ({extractClientCode(c.notes)})</option>)}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label style={{ fontSize: '14px', color: subTextColor, display: 'block', marginBottom: '6px' }}>{txt.itemDesc}</label>
+                <input type="text" placeholder={txt.itemDescPlaceholder} value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, boxSizing: 'border-box', background: cardBg, color: textColor }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '14px', color: subTextColor, display: 'block', marginBottom: '6px' }}>{txt.baseAmount}</label>
+                <input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, boxSizing: 'border-box', background: cardBg, color: textColor }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '13px', color: subTextColor, display: 'block', marginBottom: '6px' }}>{txt.invoiceStatus}</label>
+                  <select value={status} onChange={e => setStatus(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }}>
+                    <option value="Paid">{txt.paid}</option>
+                    <option value="Unpaid">{txt.unpaid}</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '13px', color: subTextColor, display: 'block', marginBottom: '6px' }}>{txt.paymentTerm}</label>
+                  <select value={paymentMode} onChange={e => setPaymentMode(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }}>
+                    <option value="no_term">{txt.noTerm}</option>
+                    <option value="with_term">{txt.withTerm}</option>
+                  </select>
+                </div>
+              </div>
+
+              {paymentMode === 'with_term' && (
+                <div style={{ background: isDarkMode ? '#3f1111' : '#fef2f2', padding: '15px', borderRadius: '8px', border: '1px solid #fecaca' }}>
+                  <label style={{ fontSize: '13px', color: '#dc2626', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>{txt.dueDateLabel}</label>
+                  <input type="text" placeholder="2026/10/05" value={dueDate} onChange={e => setDueDate(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #f87171', boxSizing: 'border-box', textAlign: 'center', background: cardBg, color: textColor }} />
+                </div>
+              )}
+
+              <div style={{ background: isDarkMode ? '#0f172a' : '#f8fafc', padding: '15px', borderRadius: '8px', border: `1px solid ${borderColor}` }}>
+                <p style={{ margin: '4px 0' }}>{txt.subtotalText} <strong>{Number(amount || 0).toFixed(2)} SAR</strong></p>
+                <p style={{ margin: '4px 0', color: '#dc2626' }}>{txt.taxText} <strong>{(Number(amount || 0) * 0.15).toFixed(2)} SAR</strong></p>
+                <p style={{ margin: '4px 0', color: '#16a34a', fontSize: '18px' }}>{txt.totalText} <strong>{(Number(amount || 0) * 1.15).toFixed(2)} SAR</strong></p>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="submit" style={{ flex: 1, background: '#16a34a', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>{editingInvoiceId ? txt.updateInvoice : txt.saveInvoice}</button>
+                {editingInvoiceId && <button type="button" onClick={() => { cancelEditInvoice(); setActiveTab('invoices'); }} style={{ background: '#64748b', color: '#fff', border: 'none', padding: '14px', borderRadius: '8px', cursor: 'pointer', fontSize: '16px' }}>{txt.cancel}</button>}
+              </div>
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'invoices' && (
+          <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ margin: '0 0 20px 0', color: textColor }}>{txt.invoicesListTitle}</h2>
+            <div style={{ marginBottom: '20px' }}>
+              <input type="text" placeholder={txt.searchPlaceholder} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: '12px 16px', width: '400px', borderRadius: '8px', border: `1px solid ${borderColor}`, outline: 'none', fontSize: '14px', background: cardBg, color: textColor }} />
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: isDarkMode ? '#0f172a' : '#f8fafc', borderBottom: `2px solid ${borderColor}` }}>
+                  <th style={{ padding: '14px', textAlign: lang === 'ar' ? 'right' : 'left' }}>{txt.invNumber}</th>
+                  <th style={{ padding: '14px', textAlign: lang === 'ar' ? 'right' : 'left' }}>{txt.clientNameHeader}</th>
+                  <th style={{ padding: '14px', textAlign: lang === 'ar' ? 'right' : 'left' }}>{txt.netAmount}</th>
+                  <th style={{ padding: '14px', textAlign: lang === 'ar' ? 'right' : 'left' }}>{txt.taxHeader}</th>
+                  <th style={{ padding: '14px', textAlign: lang === 'ar' ? 'right' : 'left' }}>{txt.totalHeader}</th>
+                  <th style={{ padding: '14px', textAlign: 'center' }}>{txt.statusHeader}</th>
+                  <th style={{ padding: '14px', textAlign: 'center' }}>{txt.actionsHeader}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredInvoices.map(inv => {
+                  const isPaid = inv.notes?.includes('Paid') || inv.notes?.includes('مدفوعة');
+                  return (
+                    <tr key={inv.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
+                      <td style={{ padding: '14px', fontWeight: 'bold', color: '#2563eb' }}>{inv.invoiceNumber}</td>
+                      <td style={{ padding: '14px' }}>{inv.client?.name}</td>
+                      <td style={{ padding: '14px' }}>{inv.subtotal} SAR</td>
+                      <td style={{ padding: '14px' }}>{inv.taxAmount} SAR</td>
+                      <td style={{ padding: '14px', fontWeight: 'bold', color: '#16a34a' }}>{inv.totalAmount} SAR</td>
+                      <td style={{ padding: '14px', textAlign: 'center' }}>
+                        <span style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', background: isPaid ? '#dcfce7' : '#fee2e2', color: isPaid ? '#16a34a' : '#dc2626' }}>
+                          {isPaid ? txt.paid : txt.unpaid}
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button onClick={() => handlePrintOrPDF(inv)} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{txt.pdfBtn}</button>
+                        {isPaid && <button onClick={() => handlePrintReceipt(inv)} style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{txt.receiptBtn}</button>}
+                        <button onClick={() => handleWhatsAppShare(inv)} style={{ background: '#25D366', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{txt.waBtn}</button>
+                        <button onClick={() => startEditInvoice(inv)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{txt.editBtn}</button>
+                        <button onClick={() => handleDeleteInvoice(inv)} style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{txt.deleteBtn}</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'clients' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '25px', alignItems: 'flex-start' }}>
+            <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <h3 style={{ marginTop: 0, color: textColor }}>{editingClientId ? txt.editClientTitle : txt.addClientTitle}</h3>
+              <form onSubmit={handleSaveClient} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '15px' }}>
+                <input type="text" placeholder={txt.clientNameLabel} value={clientName} onChange={e => setClientName(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
+                <input type="text" placeholder={txt.clientPhoneLabel} value={clientPhone} onChange={e => setClientPhone(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
+                <input type="email" placeholder={txt.clientEmailLabel} value={clientEmail} onChange={e => setClientEmail(e.target.value)} style={{ padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, background: cardBg, color: textColor }} />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="submit" style={{ flex: 1, background: '#2563eb', color: '#fff', padding: '12px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{editingClientId ? txt.updateClientBtn : txt.saveClientBtn}</button>
+                  {editingClientId && <button type="button" onClick={() => { setEditingClientId(null); setClientName(''); setClientPhone(''); setClientEmail(''); }} style={{ background: '#64748b', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer' }}>{txt.cancel}</button>}
+                </div>
               </form>
             </div>
-
-            <div style={{ background: theme.cardBg, borderRadius: '14px', border: `1px solid ${theme.border}`, padding: '25px' }}>
-              <h3 style={{ marginTop: 0, color: theme.secondary }}>📦 مستودع المنتجات (متصل بـ TiDB)</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '14px' }}>
-                <thead><tr style={{ background: '#f8fafc', borderBottom: `2px solid ${theme.border}` }}><th style={{ padding: '10px' }}>المنتج</th><th style={{ padding: '10px' }}>السعر</th><th style={{ padding: '10px' }}>الرصيد الفعلي</th></tr></thead>
+            <div style={{ background: cardBg, padding: '30px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <h3 style={{ margin: '0 0 20px 0', color: textColor }}>{txt.clientsListTitle}</h3>
+              <div style={{ marginBottom: '20px' }}>
+                <input type="text" placeholder={txt.clientSearchPlaceholder} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: '12px 16px', width: '100%', borderRadius: '8px', border: `1px solid ${borderColor}`, boxSizing: 'border-box', background: cardBg, color: textColor }} />
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: isDarkMode ? '#0f172a' : '#f8fafc', borderBottom: `2px solid ${borderColor}` }}>
+                    <th style={{ padding: '14px', textAlign: lang === 'ar' ? 'right' : 'left' }}>{txt.clientCodeHeader}</th>
+                    <th style={{ padding: '14px', textAlign: lang === 'ar' ? 'right' : 'left' }}>{txt.clientNameLabel}</th>
+                    <th style={{ padding: '14px', textAlign: lang === 'ar' ? 'right' : 'left' }}>{txt.clientPhoneLabel}</th>
+                    <th style={{ padding: '14px', textAlign: 'center' }}>{txt.actionsHeader}</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {inventory.length === 0 ? (
-                    <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>لا توجد منتجات مسجلة في المستودع. أضف منتجاً جديداً الآن!</td></tr>
-                  ) : inventory.map(i => (
-                    <tr key={i.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                      <td style={{ padding: '12px', fontWeight: 'bold' }}>{i.name}</td>
-                      <td style={{ padding: '12px' }}>{i.price} ر.س</td>
-                      <td style={{ padding: '12px', color: '#0d9488', fontWeight: 'bold' }}>{i.stock} وحدة</td>
+                  {filteredClients.map(client => (
+                    <tr key={client.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
+                      <td style={{ padding: '14px', fontWeight: 'bold', color: '#0284c7' }}>{extractClientCode(client.notes)}</td>
+                      <td style={{ padding: '14px', fontWeight: 'bold' }}>{client.name}</td>
+                      <td style={{ padding: '14px' }}>{client.phone}</td>
+                      <td style={{ padding: '14px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button onClick={() => startEditClient(client)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{txt.editBtn}</button>
+                        <button onClick={() => handleDeleteClient(client)} style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{txt.deleteBtn}</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -294,41 +864,28 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'sales' && (
-          <div style={{ background: theme.cardBg, borderRadius: '14px', border: `1px solid ${theme.border}`, padding: '30px' }}>
-            <h2 style={{ marginTop: 0, color: theme.secondary }}>إصدار فاتورة مبيعات</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-              <div><label>العميل</label><select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}` }}><option value="">-- اختر العميل --</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-              <div><label>المنتج (يسحب من مخزون TiDB)</label><select value={selectedProductId} onChange={handleProductSelect} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}` }}><option value="">-- اختر من المستودع الحقيقي --</option>{inventory.map(p => <option key={p.id} value={p.id}>{p.name} ({p.price} ر.س)</option>)}</select></div>
-              <div><label>الكمية</label><input type="number" value={qty} onChange={e => setQty(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}` }} /></div>
-              <div><label>السعر</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}` }} /></div>
-            </div>
-            <button onClick={handleSaveInvoice} style={{ background: theme.primary, color: '#fff', padding: '12px 25px', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>حفظ الفاتورة</button>
+        {activeTab === 'settings' && (
+          <div style={{ background: cardBg, padding: '35px', borderRadius: '12px', maxWidth: '500px', margin: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ marginTop: 0, color: textColor, marginBottom: '20px' }}>{txt.settingsTitle}</h2>
+            <form onSubmit={handleUpdateSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '14px', color: subTextColor, display: 'block', marginBottom: '6px' }}>{txt.bizNameLabel}</label>
+                <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}`, boxSizing: 'border-box', background: cardBg, color: textColor }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '14px', color: subTextColor, display: 'block', marginBottom: '6px' }}>{txt.logoLabel}</label>
+                <input type="file" accept="image/*" onChange={handleLogoChange} style={{ fontSize: '14px', width: '100%' }} />
+              </div>
+              {businessLogo && (
+                <div style={{ textAlign: 'center', background: isDarkMode ? '#0f172a' : '#f8fafc', padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}` }}>
+                  <img src={businessLogo} alt="Logo" style={{ maxHeight: '60px', objectFit: 'contain' }} />
+                </div>
+              )}
+              <button type="submit" style={{ background: '#2563eb', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '10px' }}>{txt.saveSettingsBtn}</button>
+            </form>
           </div>
         )}
-
-        {['purchases', 'manufacturing', 'hr', 'accounting', 'settings'].includes(activeTab) && (
-          <div style={{ background: theme.cardBg, borderRadius: '14px', border: `1px solid ${theme.border}`, padding: '50px', textAlign: 'center' }}>
-            <span style={{ fontSize: '40px' }}>⚙️</span>
-            <h2 style={{ color: theme.secondary }}>وحدة {activeTab.toUpperCase()} جاهزة للربط</h2>
-            <p style={{ color: theme.textMuted }}>هذا القسم مفعل في واجهة النظام وبانتظار تفعيل جدوله السحابي.</p>
-          </div>
-        )}
-
-        {activeTab === 'reports' && (
-          <div style={{ background: theme.cardBg, borderRadius: '14px', border: `1px solid ${theme.border}`, padding: '30px' }}>
-            <h2 style={{ marginTop: 0, color: theme.secondary }}>الفواتير والتقارير</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
-              <thead><tr style={{ borderBottom: `2px solid ${theme.border}` }}><th style={{ padding: '10px' }}>رقم الفاتورة</th><th style={{ padding: '10px' }}>العميل</th><th style={{ padding: '10px' }}>المبلغ</th></tr></thead>
-              <tbody>
-                {invoices.length === 0 ? <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>لا توجد فواتير.</td></tr> : invoices.map(inv => (
-                  <tr key={inv.id} style={{ borderBottom: `1px solid ${theme.border}` }}><td style={{ padding: '10px' }}>#{inv.invoiceNumber}</td><td style={{ padding: '10px' }}>{inv.client?.name}</td><td style={{ padding: '10px', color: '#0d9488', fontWeight: 'bold' }}>{inv.totalAmount} ر.س</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </main>
+      </div>
     </div>
   );
 }

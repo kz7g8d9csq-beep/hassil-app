@@ -108,23 +108,29 @@ app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res)
 });
 
 app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
-  const { name, price, stock } = req.body;
+  const { name, price, cost, sku, barcode, categoryId, unitId, hasSerial } = req.body;
   try {
     if (!name || price === undefined) {
       return res.status(400).json({ error: 'اسم المنتج والسعر مطلوبان' });
     }
 
     const numericPrice = Number(price);
+    const numericCost = cost !== undefined ? Number(cost) : numericPrice;
 
-    // استخدام كود إنشاء متوافق تماماً مع حقول جدول Product الإجبارية
+    // إنشاء المنتج بالحقول المطابقة تماماً لجدول Product في schema.prisma
+    // ملاحظة: لا يوجد حقل stock في جدول Product — المخزون يُدار عبر جدول InventoryBalance
     const newProduct = await prisma.product.create({
       data: {
-        companyId: Number(req.companyId),
-        name: String(name),
-        price: numericPrice,
-        cost: numericPrice,
-        stock: Number(stock) || 0,
-        sku: `SKU-${Date.now()}`
+        companyId:  Number(req.companyId),
+        name:       String(name).trim(),
+        price:      numericPrice,
+        cost:       numericCost,
+        sku:        sku || `SKU-${Date.now()}`,
+        barcode:    barcode || null,
+        categoryId: categoryId ? Number(categoryId) : null,
+        unitId:     unitId ? Number(unitId) : null,
+        hasSerial:  hasSerial === true || hasSerial === 'true' ? true : false,
+        isActive:   true,
       }
     });
 
