@@ -96,7 +96,7 @@ app.post(['/forgot-password', '/api/forgot-password', '/api/api/forgot-password'
   }
 });
 
-// مسارات المخزون (بصياغة آمنة تماماً تتوافق مع جدول Prisma)
+// مسارات المخزون (تم إضافة cost لتتوافق مع جدول Product في Prisma)
 app.get(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res) => {
   try {
     const products = await prisma.product.findMany({ where: { companyId: req.companyId } });
@@ -114,11 +114,14 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
       return res.status(400).json({ error: 'اسم المنتج والسعر مطلوبان' });
     }
 
+    const numericPrice = Number(price);
+
     const newProduct = await prisma.product.create({
       data: {
         companyId: Number(req.companyId),
         name: String(name),
-        price: Number(price),
+        price: numericPrice,
+        cost: numericPrice, // جعل التكلفة مساوية للسعر مؤقتاً لتجنب خطأ حقل cost الإلزامي
         stock: Number(stock) || 0,
         sku: `SKU-${Date.now().toString().slice(-6)}`
       }
@@ -126,7 +129,7 @@ app.post(['/inventory', '/api/inventory', '/api/api/inventory'], async (req, res
 
     res.json({ message: 'تم إضافة المنتج للمخزون بنجاح', product: newProduct });
   } catch (error) {
-    console.error('DETAIL PRISMA ERROR:', error); // طباعة تفصيلية للخطأ في الـ Console
+    console.error('DETAIL PRISMA ERROR:', error);
     res.status(500).json({ error: error.message || 'حدث خطأ أثناء حفظ المنتج في قاعدة البيانات' });
   }
 });
